@@ -1,21 +1,36 @@
 import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import api from "../../lib/api";
 import '../../styles/patients.css';
 
 const Patients = () => {
-  const navigate = useNavigate();
-  
-  const patients = [
-    { id: 1, name: 'Sarah Johnson', age: 34, gender: 'Female', status: 'Active' },
-    { id: 2, name: 'Michael Brown', age: 45, gender: 'Male', status: 'Pending' },
-    { id: 3, name: 'Emily Davis', age: 28, gender: 'Female', status: 'Active' },
-    { id: 4, name: 'Robert Wilson', age: 52, gender: 'Male', status: 'Completed' },
-    { id: 5, name: 'Jessica Martinez', age: 39, gender: 'Female', status: 'Active' },
-    { id: 6, name: 'David Lee', age: 41, gender: 'Male', status: 'Pending' },
-  ];
+  const navigate = useNavigate(); 
+  const [patients, setPatients] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchPatients = async () => {
+      try {
+        setLoading(true);
+        const res = await api.get("/doctor/patients");
+        setPatients(res.data || []);
+      } catch (err: any) {
+        setError(err.response?.data?.error || 'Failed to load patients');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPatients();
+  }, []);
 
   const handleViewCase = (patientId: number) => {
     navigate(`/doctor/patients/${patientId}`);
   };
+
+  if (loading) return <div className="loading">Loading patients...</div>;
+  if (error) return <div className="error">Error: {error}</div>;
 
   return (
     <div className="patients">
@@ -64,26 +79,31 @@ const Patients = () => {
               </tr>
             </thead>
             <tbody>
-              {patients.map(patient => (
-                <tr key={patient.id}>
-                  <td>{patient.name}</td>
-                  <td>{patient.age}</td>
-                  <td>{patient.gender}</td>
-                  <td>
-                    <span className={`status-badge ${patient.status.toLowerCase()}`}>
-                      {patient.status}
-                    </span>
-                  </td>
-                  <td>
-                    <button 
-                      className="view-case-button" 
-                      onClick={() => handleViewCase(patient.id)}
-                    >
-                      View Case
-                    </button>
+              {patients.length === 0 ? (
+                <tr>
+                  <td colSpan={5} style={{ textAlign: 'center', padding: '20px' }}>
+                    No patients found
                   </td>
                 </tr>
-              ))}
+              ) : (
+                patients.map(patient => (
+                  <tr key={patient.id}>
+                    <td>{patient.name}</td>
+                    <td>{patient.age}</td>
+                    <td>{patient.gender}</td>
+                    <td>
+                      <span className={`status-badge ${patient.status.toLowerCase()}`}>
+                        {patient.status}
+                      </span>
+                    </td>
+                    <td>
+                      <button className='view-case-button' onClick={() => handleViewCase(patient.id)}>
+                        View Case
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

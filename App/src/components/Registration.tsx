@@ -177,173 +177,215 @@ const Registration = () => {
   };
 
   return (
-    <div className="registration-container">
-      <div className={`registration-header ${userType === 'doctor' ? 'doctor-header' : 'patient-header'}`}>
-        <h1>Register</h1>
+    <div className="registration">
+      <div className="back-button-container">
+        <button className="back-button" onClick={() => navigate(-1)}>
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="19" y1="12" x2="5" y2="12"></line>
+            <polyline points="12 19 5 12 12 5"></polyline>
+          </svg>
+          Back
+        </button>
       </div>
 
-      <div className="user-type-selector">
-        <label className="radio-label">
-          <input
-            type="radio"
-            name="userType"
-            value="patient"
-            checked={userType === 'patient'}
-            onChange={() => setUserType('patient')}
-          />
-          <span className="radio-custom" />
-          <span>Patient</span>
-        </label>
-        <label className="radio-label">
-          <input
-            type="radio"
-            name="userType"
-            value="doctor"
-            checked={userType === 'doctor'}
-            onChange={() => setUserType('doctor')}
-          />
-          <span className="radio-custom" />
-          <span>Doctor</span>
-        </label>
-      </div>
-
-      <form className="registration-form" onSubmit={handleSubmit}>
-        <div className="form-group">
-          <label>Full Name</label>
-          <input type="text" name="fullName" value={formData.fullName} onChange={handleChange} />
-          {errors.fullName && <span className="error-message">{errors.fullName}</span>}
-        </div>
-
-        <div className="form-group">
-          <label>Email</label>
-          <input type="email" name="email" value={formData.email} onChange={handleChange} />
-          {errors.email && <span className="error-message">{errors.email}</span>}
-        </div>
-
-        <div className="form-group">
-          <label>Phone Number (11 digits)</label>
-          <div className={`phone-input-container ${errors.phoneDigits ? 'error' : ''}`}>
-            <div className="phone-prefix">+20</div>
-            <input
-              className="phone-input"
-              type="text"
-              name="phoneDigits"
-              value={formData.phoneDigits}
-              onChange={handleChange}
-              maxLength={11}
+      <div className="registration-main-container">
+        {/* Left Side - Image and Welcome Text */}
+        <div className="registration-left-side">
+          <div className="doctor-image-container">
+            <img 
+              src="./register.jpg" 
+              alt="Medical Team" 
+              className="doctor-image"
             />
           </div>
-          {errors.phoneDigits && <span className="error-message">{errors.phoneDigits}</span>}
+          <div className="welcome-section">
+            <h2>Join to <span className="highlight">MediCare</span></h2>
+            <h3>Hospital Management System</h3>
+            <p>Register now to access our comprehensive healthcare platform and connect with medical professionals</p>
+          </div>
         </div>
 
-        {userType === 'patient' && (
-          <>
-            <div className="form-group">
-              <label>Age</label>
-              <input type="number" name="age" value={formData.age} onChange={handleChange} />
-              {errors.age && <span className="error-message">{errors.age}</span>}
+        {/* Right Side - Registration Form */}
+        <div className="registration-right-side">
+          <div className="registration-form-container">
+            <div className="registration-header">
+              <h1>Register</h1>
+              <p>Create your account to get started</p>
             </div>
 
-            <div className="form-group">
-              <label>Blood Type</label>
-              <select name="bloodType" value={formData.bloodType} onChange={handleChange}>
-                <option value="">Select</option>
-                <option value="A+">A+</option>
-                <option value="A-">A-</option>
-                <option value="B+">B+</option>
-                <option value="B-">B-</option>
-                <option value="O+">O+</option>
-                <option value="O-">O-</option>
-                <option value="AB+">AB+</option>
-                <option value="AB-">AB-</option>
-              </select>
-              {errors.bloodType && <span className="error-message">{errors.bloodType}</span>}
+            <div className="user-type-selector">
+              <label className="radio-label">
+                <input
+                  type="radio"
+                  name="userType"
+                  value="patient"
+                  checked={userType === 'patient'}
+                  onChange={() => setUserType('patient')}
+                />
+                <span className="radio-custom" />
+                <span>Patient</span>
+              </label>
+              <label className="radio-label">
+                <input
+                  type="radio"
+                  name="userType"
+                  value="doctor"
+                  checked={userType === 'doctor'}
+                  onChange={() => setUserType('doctor')}
+                />
+                <span className="radio-custom" />
+                <span>Doctor</span>
+              </label>
             </div>
 
-            <div className="form-group">
-              <label>Address</label>
-              <textarea name="address" value={formData.address} onChange={handleChange} />
-              {errors.address && <span className="error-message">{errors.address}</span>}
-            </div>
-          </>
-        )}
+            <form className="registration-form" onSubmit={handleSubmit}>
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Full Name</label>
+                  <input type="text" name="fullName" value={formData.fullName} onChange={handleChange} placeholder="Enter your full name" />
+                  {errors.fullName && <span className="error-message">{errors.fullName}</span>}
+                </div>
 
-        {userType === 'doctor' && (
-          <>
-            <div className="form-group">
-              <label>Specialty</label>
-              <select name="specialty" value={formData.specialty} onChange={handleChange}>
-                <option value="">Select specialty</option>
-                <option>General Practice</option>
-                <option>Cardiology</option>
-                <option>Dermatology</option>
-                <option>Pediatrics</option>
-                <option>Orthopedics</option>
-                <option>Neurology</option>
-                <option>Psychiatry</option>
-                <option>Oncology</option>
-                <option>Radiology</option>
-                <option>ENT</option>
-                <option>Ophthalmology</option>
-                <option>Urology</option>
-                <option>Gynecology</option>
-              </select>
-              {errors.specialty && <span className="error-message">{errors.specialty}</span>}
-            </div>
-
-            <div className="form-group">
-              <label>Medical License (Image)</label>
-              <div className="file-upload-container">
-                <label className={`file-upload-button ${errors.licenseFile ? 'error' : ''}`}>
-                  <input
-                    type="file"
-                    accept=".pdf,.jpg,.jpeg,.png"
-                    style={{ display: 'none' }}
-                    onChange={(e) => {
-                      if (e.target.files?.[0]) {
-                        setFormData((prev) => ({ ...prev, licenseFile: e.target.files![0] }));
-                      }
-                    }}
-                  />
-                  {formData.licenseFile ? formData.licenseFile.name : 'Choose file or drag it here'}
-                </label>
-                {errors.licenseFile && <span className="error-message">{errors.licenseFile}</span>}
+                <div className="form-group">
+                  <label>Email</label>
+                  <input type="email" name="email" value={formData.email} onChange={handleChange} placeholder="example@gmail.com" />
+                  {errors.email && <span className="error-message">{errors.email}</span>}
+                </div>
               </div>
-            </div>
-          </>
-        )}
 
-        <div className="form-group">
-          <label>Password</label>
-          <input type="password" name="password" value={formData.password} onChange={handleChange} />
-          {errors.password && <span className="error-message">{errors.password}</span>}
+              <div className="form-group">
+                <label>Phone Number</label>
+                <div className={`phone-input-container ${errors.phoneDigits ? 'error' : ''}`}>
+                  <div className="phone-prefix">+20</div>
+                  <input
+                    className="phone-input"
+                    type="text"
+                    name="phoneDigits"
+                    value={formData.phoneDigits}
+                    onChange={handleChange}
+                    maxLength={11}
+                    placeholder="1234567890"
+                  />
+                </div>
+                {errors.phoneDigits && <span className="error-message">{errors.phoneDigits}</span>}
+              </div>
+
+              {userType === 'patient' && (
+                <>
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label>Age</label>
+                      <input type="number" name="age" value={formData.age} onChange={handleChange} placeholder="Enter your age" />
+                      {errors.age && <span className="error-message">{errors.age}</span>}
+                    </div>
+
+                    <div className="form-group">
+                      <label>Blood Type</label>
+                      <select name="bloodType" value={formData.bloodType} onChange={handleChange}>
+                        <option value="">Select blood type</option>
+                        <option value="A+">A+</option>
+                        <option value="A-">A-</option>
+                        <option value="B+">B+</option>
+                        <option value="B-">B-</option>
+                        <option value="O+">O+</option>
+                        <option value="O-">O-</option>
+                        <option value="AB+">AB+</option>
+                        <option value="AB-">AB-</option>
+                      </select>
+                      {errors.bloodType && <span className="error-message">{errors.bloodType}</span>}
+                    </div>
+                  </div>
+
+                  <div className="form-group">
+                    <label>Address</label>
+                    <textarea name="address" value={formData.address} onChange={handleChange} placeholder="Enter your address" rows={3} />
+                    {errors.address && <span className="error-message">{errors.address}</span>}
+                  </div>
+                </>
+              )}
+
+              {userType === 'doctor' && (
+                <>
+                  <div className="form-group">
+                    <label>Specialty</label>
+                    <select name="specialty" value={formData.specialty} onChange={handleChange}>
+                      <option value="">Select specialty</option>
+                      <option>General Practice</option>
+                      <option>Cardiology</option>
+                      <option>Dermatology</option>
+                      <option>Pediatrics</option>
+                      <option>Orthopedics</option>
+                      <option>Neurology</option>
+                      <option>Psychiatry</option>
+                      <option>Oncology</option>
+                      <option>Radiology</option>
+                      <option>ENT</option>
+                      <option>Ophthalmology</option>
+                      <option>Urology</option>
+                      <option>Gynecology</option>
+                    </select>
+                    {errors.specialty && <span className="error-message">{errors.specialty}</span>}
+                  </div>
+
+                  <div className="form-group">
+                    <label>Medical License</label>
+                    <div className="file-upload-container">
+                      <label className={`file-upload-button ${errors.licenseFile ? 'error' : ''}`}>
+                        <input
+                          type="file"
+                          accept=".pdf,.jpg,.jpeg,.png"
+                          style={{ display: 'none' }}
+                          onChange={(e) => {
+                            if (e.target.files?.[0]) {
+                              setFormData((prev) => ({ ...prev, licenseFile: e.target.files![0] }));
+                            }
+                          }}
+                        />
+                        {formData.licenseFile ? formData.licenseFile.name : 'Choose file'}
+                      </label>
+                      {errors.licenseFile && <span className="error-message">{errors.licenseFile}</span>}
+                    </div>
+                  </div>
+                </>
+              )}
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Password</label>
+                  <input type="password" name="password" value={formData.password} onChange={handleChange} placeholder="••••••••••••••••••••••••" />
+                  {errors.password && <span className="error-message">{errors.password}</span>}
+                </div>
+
+                <div className="form-group">
+                  <label>Confirm Password</label>
+                  <input
+                    type="password"
+                    name="confirmPassword"
+                    value={formData.confirmPassword}
+                    onChange={handleChange}
+                    placeholder="••••••••••••••••••••••••"
+                  />
+                  {errors.confirmPassword && <span className="error-message">{errors.confirmPassword}</span>}
+                </div>
+              </div>
+
+              {errors.general && <div className="error-message general">{errors.general}</div>}
+
+              <button
+                type="submit"
+                className="submit-button"
+                disabled={isSubmitting || retrySeconds !== null}
+              >
+                {retrySeconds !== null ? `Please wait ${retrySeconds}s` : isSubmitting ? 'Registering...' : 'Register'}
+              </button>
+            </form>
+
+            <p className="login-link">
+              Already have an account? <Link to="/login">Login here</Link>
+            </p>
+          </div>
         </div>
-
-        <div className="form-group">
-          <label>Confirm Password</label>
-          <input
-            type="password"
-            name="confirmPassword"
-            value={formData.confirmPassword}
-            onChange={handleChange}
-          />
-          {errors.confirmPassword && <span className="error-message">{errors.confirmPassword}</span>}
-        </div>
-
-        {errors.general && <div className="error-message general">{errors.general}</div>}
-
-        <button
-          type="submit"
-          className={`submit-button ${userType === 'doctor' ? 'doctor-submit' : 'patient-submit'}`}
-          disabled={isSubmitting || retrySeconds !== null}
-        >
-          {retrySeconds !== null ? `Please wait ${retrySeconds}s` : isSubmitting ? 'Registering...' : 'Register'}
-        </button>
-      </form>
-
-      <p className="login-link">
-        Already have an account? <Link to="/login">Login here</Link>
-      </p>
+      </div>
     </div>
   );
 };

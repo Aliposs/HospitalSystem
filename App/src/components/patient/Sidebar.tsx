@@ -13,7 +13,7 @@ const Sidebar: React.FC = () => {
   };
 
   const navItems = [
-    { path: '/patient/dashboard', label: 'Dashboard', icon: 'dashboard' },
+    { path: '/patient/dashboard', label: 'Home', icon: 'dashboard' },
     { path: '/patient/find-doctor', label: 'Find a Doctor', icon: 'search' },
     { path: '/patient/appointments', label: 'Appointments', icon: 'calendar' },
     { path: '/patient/medical-record', label: 'My Case / Medical Record', icon: 'folder' },

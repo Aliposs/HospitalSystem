@@ -9,13 +9,15 @@ const Appointments = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // جلب المواعيد من الـ backend
   useEffect(() => {
     const fetchAppointments = async () => {
       try {
         setLoading(true);
         const res = await api.get("/doctor/appointments");
-        setAppointments(res.data);
+        setAppointments(res.data || []);
       } catch (err: any) {
+        console.error("Fetch appointments error:", err);
         setError(err.response?.data?.error || "Failed to load appointments");
       } finally {
         setLoading(false);
@@ -24,6 +26,8 @@ const Appointments = () => {
 
     fetchAppointments();
   }, []);
+
+  // باقي الدوال زي ما هي (getDaysInMonth, handlePrevMonth, handleNextMonth, getAppointmentsForDay)
 
   const getDaysInMonth = (date: Date) => {
     const year = date.getFullYear();
@@ -35,12 +39,10 @@ const Appointments = () => {
 
     const days = [];
 
-    // Add empty cells for days before the first day of the month
     for (let i = 0; i < startingDayOfWeek; i++) {
       days.push(null);
     }
 
-    // Add all days of the month
     for (let i = 1; i <= daysInMonth; i++) {
       days.push(i);
     }
@@ -49,29 +51,19 @@ const Appointments = () => {
   };
 
   const monthNames = [
-    "January",
-    "February",
-    "March",
-    "April",
-    "May",
-    "June",
-    "July",
-    "August",
-    "September",
-    "October",
-    "November",
-    "December",
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"
   ];
 
   const handlePrevMonth = () => {
     setSelectedDate(
-      new Date(selectedDate.getFullYear(), selectedDate.getMonth() - 1),
+      new Date(selectedDate.getFullYear(), selectedDate.getMonth() - 1)
     );
   };
 
   const handleNextMonth = () => {
     setSelectedDate(
-      new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1),
+      new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1)
     );
   };
 
@@ -128,23 +120,31 @@ const Appointments = () => {
                 </tr>
               </thead>
               <tbody>
-                {appointments.map(appointment => (
-                  <tr key={appointment.id}>
-                    <td>{appointment.patient}</td>
-                    <td>
-                      {appointment.date} at {appointment.time}
-                    </td>
-                    <td>{appointment.type}</td>
-                    <td>
-                      <span className={`status-badge ${appointment.status}`}>
-                        {appointment.status}
-                      </span>
-                    </td>
-                    <td>
-                      <button className="action-button">View Details</button>
+                {appointments.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} style={{ textAlign: "center", padding: "20px" }}>
+                      No appointments found
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  appointments.map((appointment) => (
+                    <tr key={appointment.id}>
+                      <td>{appointment.patient}</td>
+                      <td>
+                        {appointment.date} at {appointment.time}
+                      </td>
+                      <td>{appointment.type}</td>
+                      <td>
+                        <span className={`status-badge ${appointment.status}`}>
+                          {appointment.status}
+                        </span>
+                      </td>
+                      <td>
+                        <button className="action-button">View Details</button>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -153,35 +153,13 @@ const Appointments = () => {
         <div className="calendar-container">
           <div className="calendar-header">
             <button className="nav-button" onClick={handlePrevMonth}>
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="15 18 9 12 15 6"></polyline>
               </svg>
             </button>
-            <h2>
-              {monthNames[selectedDate.getMonth()]} {selectedDate.getFullYear()}
-            </h2>
+            <h2>{monthNames[selectedDate.getMonth()]} {selectedDate.getFullYear()}</h2>
             <button className="nav-button" onClick={handleNextMonth}>
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="9 18 15 12 9 6"></polyline>
               </svg>
             </button>

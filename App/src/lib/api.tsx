@@ -66,12 +66,13 @@ api.interceptors.request.use(config => {
   const token = useAuthStore.getState().accessToken;
 
   const isAuthRequest = config.url?.includes('/auth/') || config.url?.includes('/refresh');
+  const isPublicRoute = config.url?.includes('/doctor/search') || 
+                        config.url?.includes('/doctor/') && config.method?.toLowerCase() === 'get';
 
-  if (token && !isAuthRequest) {
+  if (token && !isAuthRequest && !isPublicRoute) {
     config.headers.Authorization = `Bearer ${token}`;
     console.log('Sending request with token: ', token.substring(0, 5) + '...');
-
-  } else if(!token && !isAuthRequest){
+  } else if(!token && !isAuthRequest && !isPublicRoute){
     console.warn('No token found for protected request:', config.url);
   }
 

@@ -1,19 +1,37 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
 import DoctorCard from '../sub-components/DoctorCard';
+import api from '../../../lib/api'; 
 import '../../../styles/patientDashboard.css';
 
-// Dummy data
-const doctorsData = [
-  { id: 1, name: 'Dr. John Smith', specialization: 'Cardiology', experience: '15 years', rating: 4.8, availability: 'Available Today' },
-  { id: 2, name: 'Dr. Emily White', specialization: 'Dermatology', experience: '10 years', rating: 4.9, availability: 'Available Tomorrow' },
-  { id: 3, name: 'Dr. Michael Brown', specialization: 'Neurology', experience: '20 years', rating: 4.7, availability: 'Busy' },
-  { id: 4, name: 'Dr. Jessica Davis', specialization: 'Pediatrics', experience: '8 years', rating: 4.9, availability: 'Available Today' },
-];
 
 const FindDoctor: React.FC = () => {
   const [filters, setFilters] = useState({ name: '', specialization: '', rating: '' });
-  const [doctors] = useState(doctorsData);
+  const [doctors, setDoctors] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchDoctors = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const params = new URLSearchParams();
+        if (filters.name) params.append('name', filters.name);
+        if (filters.specialization) params.append('specialization', filters.specialization);
+        if (filters.rating) params.append('rating', filters.rating);
+
+        const res = await api.get(`/doctor/search?${params.toString()}`);
+        setDoctors(res.data || []);
+      } catch (err: any) {
+        setError(err.response?.data?.error || 'Failed to load doctors');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDoctors();
+  }, [filters]);
 
   const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setFilters({ ...filters, [e.target.name]: e.target.value });
@@ -40,6 +58,14 @@ const FindDoctor: React.FC = () => {
               <option value="cardiology">Cardiology</option>
               <option value="dermatology">Dermatology</option>
               <option value="neurology">Neurology</option>
+              <option value="pediatrics">Pediatrics</option>
+              <option value="orthopedics">Orthopedics</option>
+              <option value="psychiatry">Psychiatry</option>
+              <option value="oncology">Oncology</option>
+              <option value="radiology">Radiology</option>             <option>ENT</option>
+              <option value="ophthalmology">Ophthalmology</option>
+              <option value="urology">Urology</option>
+              <option value="gynecology">Gynecology</option>
             </select>
           </div>
           <div className="form-group">
@@ -54,9 +80,17 @@ const FindDoctor: React.FC = () => {
         </aside>
 
         <main className="doctor-results-grid">
-          {doctors.map(doctor => (
-            <DoctorCard key={doctor.id} doctor={doctor} />
-          ))}
+          {loading ? (
+            <div className="loading">Loading doctors...</div>
+          ) : error ? (
+            <div className="error">{error}</div>
+          ) : doctors.length === 0 ? (
+            <div className="no-results">No doctors found matching your filters</div>
+          ) : (
+            doctors.map(doctor => (
+              <DoctorCard key={doctor.id} doctor={doctor} />
+            ))
+          )}
         </main>
       </div>
     </>

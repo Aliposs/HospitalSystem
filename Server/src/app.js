@@ -4,6 +4,7 @@ const path = require('path');
 const cookieParser = require('cookie-parser');
 const authRoutes = require('./routes/auth');
 const doctorRoutes = require('./routes/doctor');
+const patientRoutes = require('./routes/patient');
 
 
 const app = express();
@@ -30,6 +31,7 @@ app.use('/api/auth', authRoutes);
 
 app.use('/api/doctor', doctorRoutes);
 
+app.use('/api/patient', patientRoutes);
 
 
 app.use((req, res) => {

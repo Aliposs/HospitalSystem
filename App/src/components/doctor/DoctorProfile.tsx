@@ -241,9 +241,8 @@ const DoctorProfile = () => {
       return;
     }
 
-    // Open file in new tab (works for PDF/images)
-    const fullUrl = `http://localhost:5000${filePath}`;
-    window.open(fullUrl, "_blank");
+    // Open file in new tab - filePath is already a full Supabase URL
+    window.open(filePath, "_blank");
   };
 
   const handleDownloadCertificate = async (filePath: string) => {
@@ -252,17 +251,18 @@ const DoctorProfile = () => {
       return;
     }
 
-    const filename = filePath.split("/").pop() || "certificate.pdf";
     try {
-      const response = await api.get(
-        `/doctor/download-certificate/${encodeURIComponent(filename)}`,
-        {
-          responseType: "blob", // Important: tell axios to handle binary data
-        },
-      );
+      // Fetch the file from Supabase URL
+      const response = await fetch(filePath);
+      if (!response.ok) throw new Error('Failed to fetch file');
+      
+      const blob = await response.blob();
+      
+      // Extract filename from URL or use default
+      const filename = filePath.split("/").pop() || "certificate.pdf";
 
       // Create blob URL and trigger download
-      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
       link.setAttribute("download", filename);
@@ -276,8 +276,7 @@ const DoctorProfile = () => {
       console.log("Download triggered successfully");
     } catch (err: any) {
       console.error("Download failed:", err);
-      const errorMsg =
-        err.response?.data?.error || err.message || "Download failed";
+      const errorMsg = err.message || "Download failed";
       alert(errorMsg);
     }
   };
@@ -334,10 +333,7 @@ const DoctorProfile = () => {
           <div className="profile-picture">
             {profilePicPreview || personalInfo.profilePicture ? (
               <img
-                src={
-                  profilePicPreview ||
-                  `http://localhost:5000${personalInfo.profilePicture}`
-                }
+                src={profilePicPreview || personalInfo.profilePicture || ''}
                 alt="Profile"
                 className="avatar-img"
                 style={{

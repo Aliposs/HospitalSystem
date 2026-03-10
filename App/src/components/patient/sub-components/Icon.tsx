@@ -2,7 +2,7 @@ import React, { type JSX } from 'react';
 
 interface IconProps {
   name: string;
-  className?: string; // Allow passing custom classes
+  className?: string;
 }
 
 const Icon: React.FC<IconProps> = ({ name, className = '' }) => {

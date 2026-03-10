@@ -16,7 +16,7 @@ interface Doctor {
     id: number;
     name: string;
     issue_date: string;
-    file_path: string;
+    file: string;
   }>;
 }
 
@@ -60,8 +60,8 @@ const DoctorProfile: React.FC = () => {
       alert('No file available');
       return;
     }
-    const fullUrl = `http://localhost:5000${filePath}`;
-    window.open(fullUrl, '_blank');
+    // File path is already a full Supabase URL, open it directly
+    window.open(filePath, '_blank');
   };
 
   // Simple calendar mockup
@@ -121,9 +121,21 @@ const DoctorProfile: React.FC = () => {
   return (
     <>
       <div className="page-header">
-        {doctor.profilePicture && (
+        {doctor.profilePicture ? (
           <img 
-            src={`http://localhost:5000${doctor.profilePicture}`} 
+            src={doctor.profilePicture} 
+            alt={doctor.name}
+            style={{ 
+              width: '100px', 
+              height: '100px', 
+              borderRadius: '50%', 
+              objectFit: 'cover',
+              marginBottom: '1rem'
+            }}
+          />
+        ) : (
+          <img 
+            src={`https://ui-avatars.com/api/?name=${encodeURIComponent(doctor.name)}&background=4F46E5&color=fff&size=100`}
             alt={doctor.name}
             style={{ 
               width: '100px', 
@@ -135,14 +147,14 @@ const DoctorProfile: React.FC = () => {
           />
         )}
         <h1>{doctor.name}</h1>
-        <p>{doctor.specialization}</p>
+        <p style={{color: 'black', fontSize: '1.2rem'}}><span style={{color: 'gray', fontSize: '1rem', fontWeight: 'bold'}}>Specialization:</span> {doctor.specialization}</p>
         {doctor.yearsOfExperience && (
-          <p style={{ fontSize: '0.9rem', color: '#666' }}>
-            {doctor.yearsOfExperience} years of experience
+          <p style={{ fontSize: '1.2rem', color: 'black' }}> <span style={{color: 'gray',fontSize: '1rem', fontWeight: 'bold'}}>Experience years: </span>
+            {doctor.yearsOfExperience} years
           </p>
         )}
         {doctor.clinicName && (
-          <p style={{ fontSize: '0.9rem', color: '#666' }}>
+          <p style={{ fontSize: '1.2rem', color: 'black' }}> <span style={{color: 'gray', fontSize: '1rem', fontWeight: 'bold'}}>Clinic Name: </span>
             {doctor.clinicName}
           </p>
         )}
@@ -187,7 +199,7 @@ const DoctorProfile: React.FC = () => {
                   )}
                 </div>
                 <button
-                  onClick={() => handleViewCertificate(cert.file_path)}
+                  onClick={() => handleViewCertificate(cert.file)}
                   className="btn btn-secondary"
                   style={{ padding: '0.5rem 1rem' }}
                 >

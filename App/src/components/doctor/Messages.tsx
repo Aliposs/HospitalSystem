@@ -1,59 +1,82 @@
-import React, { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useAuthStore } from '../../store/authStore';
+import api from '../../lib/api';
 import '../../styles/messages.css';
 
 const Messages = () => {
-  const [selectedChat, setSelectedChat] = useState<number | null>(1);
+  const {user} = useAuthStore();
+  const [selectedChat, setSelectedChat] = useState<string | null>(null);
   const [messageInput, setMessageInput] = useState('');
+  const [chats, setChats] = useState<any[]>([]);
+  const [messages, setMessages] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [selectedAttachment, setSelectedAttachment] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
-  const chatList = [
-    { 
-      id: 1, 
-      name: 'Sarah Johnson', 
-      lastMessage: 'Thank you for the prescription, doctor.', 
-      time: '10:30 AM',
-      unread: 2,
-      avatar: 'SJ'
-    },
-    { 
-      id: 2, 
-      name: 'Michael Brown', 
-      lastMessage: 'Is it possible to reschedule my appointment?', 
-      time: 'Yesterday',
-      unread: 0,
-      avatar: 'MB'
-    },
-    { 
-      id: 3, 
-      name: 'Emily Davis', 
-      lastMessage: 'I\'ve uploaded my lab results.', 
-      time: '2 days ago',
-      unread: 1,
-      avatar: 'ED'
-    },
-    { 
-      id: 4, 
-      name: 'Robert Wilson', 
-      lastMessage: 'The medication is working well, thank you.', 
-      time: '3 days ago',
-      unread: 0,
-      avatar: 'RW'
-    },
-  ];
+  // جلب قايمة المحادثات
+  useEffect(() => {
+    const fetchChats = async () => {
+      try {
+        setLoading(true);
+        const res = await api.get('/doctor/chats');
+        setChats(res.data || []);
+      } catch (err: any) {
+        setError(err.response?.data?.error || 'Failed to load chats');
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  const messages = [
-    { id: 1, sender: 'patient', text: 'Hello doctor, I have a question about my medication.', time: '10:15 AM' },
-    { id: 2, sender: 'doctor', text: 'Hello Sarah! I\'d be happy to help. What\'s your question?', time: '10:20 AM' },
-    { id: 3, sender: 'patient', text: 'I\'ve been experiencing some mild side effects. Is this normal?', time: '10:25 AM' },
-    { id: 4, sender: 'doctor', text: 'Some mild side effects can be normal, especially during the first week. Which symptoms are you experiencing?', time: '10:28 AM' },
-    { id: 5, sender: 'patient', text: 'Mostly just some nausea and slight dizziness. Nothing too severe.', time: '10:30 AM' },
-    { id: 6, sender: 'patient', text: 'Thank you for the prescription, doctor.', time: '10:30 AM' },
-  ];
+    fetchChats();
+  }, []);
 
-  const handleSendMessage = () => {
-    if (messageInput.trim()) {
-      // In a real app, this would send the message to the backend
-      console.log('Sending message:', messageInput);
+  useEffect(() => {
+    if (!selectedChat) return;
+
+    const fetchMessages = async () => {
+      try {
+        const res = await api.get(`/doctor/chats/${selectedChat}`);
+        setMessages(res.data || []);
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      } catch (err) {
+        console.error('Messages fetch error:', err);
+      }
+    };
+
+    fetchMessages();
+    const interval = setInterval(fetchMessages, 10000); // refresh every 10s
+    return () => clearInterval(interval);
+  }, [selectedChat]);
+
+  const handleSendMessage = async () => {
+    if ((!messageInput.trim() && !selectedAttachment) || !selectedChat) return;
+    
+    try {
+
+      const formData = new FormData();
+      if (messageInput.trim()) {
+        formData.append('message_text', messageInput);
+      }
+      if (selectedAttachment){
+        formData.append('attachment', selectedAttachment);
+      }
+
+      await api.post(`/doctor/chats/${selectedChat}`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      
       setMessageInput('');
+      setSelectedAttachment(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      
+      const res = await api.get(`/doctor/chats/${selectedChat}`);
+      setMessages(res.data || []);
+    } catch (err) {
+      alert('Failed to send message');
     }
   };
 
@@ -64,7 +87,21 @@ const Messages = () => {
     }
   };
 
-  const selectedChatData = chatList.find(chat => chat.id === selectedChat);
+  const handleAttachmentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  if (e.target.files && e.target.files[0]) {
+    const file = e.target.files[0];
+    setSelectedAttachment(file);
+    // Optional: preview for images
+    if (file.type.startsWith('image/')) {
+      const previewUrl = URL.createObjectURL(file);
+    }
+  }
+};
+
+  const selectedChatData = chats.find(chat => chat.id === selectedChat);
+
+  if (loading) return <div className="loading">Loading messages...</div>;
+  if (error) return <div className="error">Error: {error}</div>;
 
   return (
     <div className="messages-module">
@@ -83,36 +120,66 @@ const Messages = () => {
               </svg>
             </button>
           </div>
-          
+
           <div className="chat-items">
-            {chatList.map(chat => (
-              <div 
-                key={chat.id}
-                className={`chat-item ${selectedChat === chat.id ? 'active' : ''}`}
-                onClick={() => setSelectedChat(chat.id)}
-              >
-                <div className="chat-avatar">{chat.avatar}</div>
-                <div className="chat-info">
-                  <div className="chat-header">
-                    <span className="chat-name">{chat.name}</span>
-                    <span className="chat-time">{chat.time}</span>
-                  </div>
-                  <div className="chat-preview">
-                    <span className="last-message">{chat.lastMessage}</span>
-                    {chat.unread > 0 && (
-                      <span className="unread-badge">{chat.unread}</span>
-                    )}
+            {chats.length === 0 ? (
+              <div className="no-chats">No conversations yet</div>
+            ) : (
+              chats.map(chat => (
+                <div
+                  key={chat.id}
+                  className={`chat-item ${selectedChat === chat.id ? 'active' : ''}`}
+                  onClick={() => setSelectedChat(chat.id)}
+                >
+                  {chat.profilePicture ? (
+                    <img 
+                      src={chat.profilePicture} 
+                      alt={chat.name} 
+                      className="chat-avatar"
+                      style={{
+                        width: '50px',
+                        height: '50px',
+                        borderRadius: '50%',
+                        objectFit: 'cover'
+                      }}
+                    />
+                  ) : (
+                    <div className="chat-avatar">{chat.avatar}</div>
+                  )}
+                  <div className="chat-info">
+                    <div className="chat-header">
+                      <span className="chat-name">{chat.name}</span>
+                      <span className="chat-time">{chat.time}</span>
+                    </div>
+                    <div className="chat-preview">
+                      <span className="last-message">{chat.lastMessage}</span>
+                      {chat.unread > 0 && <span className="unread-badge">{chat.unread}</span>}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
         
         {selectedChat ? (
           <div className="conversation">
             <div className="conversation-header">
-              <div className="chat-avatar">{selectedChatData?.avatar}</div>
+              {selectedChatData?.profilePicture ? (
+                <img 
+                  src={selectedChatData.profilePicture} 
+                  alt={selectedChatData.name} 
+                  className="chat-avatar"
+                  style={{
+                    width: '50px',
+                    height: '50px',
+                    borderRadius: '50%',
+                    objectFit: 'cover'
+                  }}
+                />
+              ) : (
+                <div className="chat-avatar">{selectedChatData?.avatar}</div>
+              )}
               <div className="chat-info">
                 <h3>{selectedChatData?.name}</h3>
                 <span className="online-status">Online</span>
@@ -133,22 +200,63 @@ const Messages = () => {
             </div>
             
             <div className="messages-container">
-              {messages.map(message => (
-                <div key={message.id} className={`message ${message.sender}`}>
+              {messages.map(msg => (
+                <div 
+                key={msg.id} 
+                className={`message ${msg.sender_id === user?.id ? 'doctor' : 'patient'}`}
+                >
                   <div className="message-content">
-                    <p>{message.text}</p>
-                    <span className="message-time">{message.time}</span>
+                    {msg.message_text && <p>{msg.message_text}</p>}
+
+                    {msg.file_path && (
+                      <div className='message-attachment'>
+                        <a href={msg.file_path}
+                        target='_blank'
+                        rel='noopener noreferrer'
+                        download={msg.file_name}
+                        >
+                          📎 {msg.file_name || 'Attachment'}
+                        </a>
+                        {msg.file_type?.startsWith('image/') && (
+                          <img src={msg.file_path} alt='attachment' style={{maxWidth: '200px', marginTop: '8px', borderRadius: '8px'}} />
+                        )}
+                      </div>
+                    )}
+                    <span className="message-time">
+                      {new Date (msg.sent_at).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}
+                      </span>
                   </div>
                 </div>
               ))}
+              <div ref={messagesEndRef}/>
             </div>
             
             <div className="message-input-container">
-              <button className="attach-button">
+              {selectedAttachment && (
+                <div style={{ padding: '8px', background: '#f0f0f0', borderRadius: '4px', marginBottom: '8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: '14px' }}>📎 {selectedAttachment.name}</span>
+                  <button 
+                    onClick={() => {
+                      setSelectedAttachment(null);
+                      if (fileInputRef.current) fileInputRef.current.value = '';
+                    }}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '18px' }}
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
+              <button className="attach-button" onClick={() => fileInputRef.current?.click()}>
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
                 </svg>
               </button>
+              <input 
+              type="file" ref={fileInputRef} 
+              style={{ display: 'none' }} 
+              accept="image/*,.pdf,.doc,.docx,.txt" 
+              onChange={handleAttachmentChange}
+              />
               <input
                 type="text"
                 value={messageInput}
@@ -157,7 +265,15 @@ const Messages = () => {
                 placeholder="Type a message..."
                 className="message-input"
               />
-              <button className="send-button" onClick={handleSendMessage}>
+              <button 
+                className="send-button" 
+                onClick={handleSendMessage}
+                disabled={(!messageInput.trim() && !selectedAttachment) || !selectedChat}
+                style={{ 
+                  opacity: ((!messageInput.trim() && !selectedAttachment) || !selectedChat) ? 0.5 : 1,
+                  cursor: ((!messageInput.trim() && !selectedAttachment) || !selectedChat) ? 'not-allowed' : 'pointer'
+                }}
+              >
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <line x1="22" y1="2" x2="11" y2="13"></line>
                   <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
@@ -167,11 +283,6 @@ const Messages = () => {
           </div>
         ) : (
           <div className="no-chat-selected">
-            <div className="no-chat-icon">
-              <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-              </svg>
-            </div>
             <h3>Select a conversation</h3>
             <p>Choose a conversation from the list to start messaging</p>
           </div>
@@ -182,3 +293,4 @@ const Messages = () => {
 };
 
 export default Messages;
+
