@@ -2,21 +2,29 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import api from '../../lib/api';
 import '../../styles/patientCaseDetails.css';
-import Patients from './Patients';
 
 const PatientCaseDetail = () => {
   const { patientId } = useParams<{ patientId: string }>();
   const navigate = useNavigate();
   const [patient, setPatient] = useState<any>(null);
+  const [diagnosis, setDiagnosis] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showDiagnosisModal, setShowDiagnosisModal] = useState(false);
+  const [diagnosisText, setDiagnosisText] = useState('');
+  const [savingDiagnosis, setSavingDiagnosis] = useState(false);
 
   useEffect(() => {
     const fetchPatientCase = async () => {
       try {
         setLoading(true);
-        const res = await api.get(`/doctor/patients/${patientId}`);
-        setPatient(res.data);
+        const [patientRes, diagnosisRes] = await Promise.all([
+          api.get(`/doctor/patients/${patientId}`),
+          api.get(`/doctor/diagnoses/${patientId}`)
+        ]);
+        setPatient(patientRes.data);
+        setDiagnosis(diagnosisRes.data);
+        setDiagnosisText(diagnosisRes.data?.diagnosis_text || '');
       } catch (err: any) {
         setError(err.response?.data?.error || 'Failed to load patient case');
       } finally {
@@ -35,7 +43,29 @@ const PatientCaseDetail = () => {
   const handleGoBack = () => {
     navigate('/doctor/patients');
   };
-  const diagnosis = 'Chronic migraine with tension headache components';
+
+  const handleSaveDiagnosis = async () => {
+    if (!diagnosisText.trim()) return;
+    
+    try {
+      setSavingDiagnosis(true);
+      if (diagnosis?.id) {
+        // Update existing
+        const res = await api.put(`/doctor/diagnoses/${diagnosis.id}`, { diagnosis_text: diagnosisText });
+        setDiagnosis(res.data);
+      } else {
+        // Create new
+        const res = await api.post('/doctor/diagnoses', { patient_id: patientId, diagnosis_text: diagnosisText });
+        setDiagnosis(res.data);
+      }
+      setShowDiagnosisModal(false);
+      setDiagnosisText('');
+    } catch (err) {
+      console.error('Save diagnosis error:', err);
+    } finally {
+      setSavingDiagnosis(false);
+    }
+  };
   const treatmentPlan = 'Prescribed medication for pain management, recommended lifestyle changes, and follow-up in 4 weeks.';
   const aiAnalysis = { probability: '85%', conditions: ['Migraine', 'Tension Headache', 'Sinusitis'], recommendation: 'Further neurological examination recommended'};
   const medicalHistory = [
@@ -79,12 +109,8 @@ const PatientCaseDetail = () => {
               <span className="info-value">{patient.gender || 'N/A'}</span>
             </div>
             <div className="info-item">
-              <span className="info-label">Email:</span>
-              <span className="info-value">{patient.email || 'N/A'}</span>
-            </div>
-            <div className="info-item">
               <span className="info-label">Phone:</span>
-              <span className="info-value">{patient.phone || 'N/A'}</span>
+              <span className="info-value">{patient.phone ? patient.phone.replace('+20', '0') : 'N/A'}</span>
             </div>
             <div className="info-item">
               <span className="info-label">Blood Type:</span>
@@ -145,9 +171,14 @@ const PatientCaseDetail = () => {
           </div>
           
           <div className="diagnosis-section">
-            <h2>Doctor Diagnosis</h2>
+            <div className="section-header">
+              <h2>Doctor Diagnosis</h2>
+              <button className="edit-diagnosis-btn" onClick={() => setShowDiagnosisModal(true)}>
+                {diagnosis ? 'Edit' : 'Add'} Diagnosis
+              </button>
+            </div>
             <div className="diagnosis-content">
-              <p>{diagnosis}</p>
+              <p>{diagnosis?.diagnosis_text || 'No diagnosis recorded yet'}</p>
             </div>
           </div>
           
@@ -169,6 +200,27 @@ const PatientCaseDetail = () => {
           </div>
         </div>
       </div>
+
+      {showDiagnosisModal && (
+        <div className="modal-overlay" onClick={() => setShowDiagnosisModal(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <h3>Edit Diagnosis</h3>
+            <textarea
+              value={diagnosisText}
+              onChange={e => setDiagnosisText(e.target.value)}
+              placeholder="Enter diagnosis..."
+              rows={6}
+              className="diagnosis-textarea"
+            />
+            <div className="modal-actions">
+              <button className="btn-cancel" onClick={() => setShowDiagnosisModal(false)}>Cancel</button>
+              <button className="btn-save" onClick={handleSaveDiagnosis} disabled={savingDiagnosis}>
+                {savingDiagnosis ? 'Saving...' : 'Save Diagnosis'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

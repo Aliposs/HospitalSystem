@@ -16,7 +16,7 @@ const Sidebar: React.FC = () => {
     { path: '/patient/dashboard', label: 'Home', icon: 'dashboard' },
     { path: '/patient/find-doctor', label: 'Find a Doctor', icon: 'search' },
     { path: '/patient/appointments', label: 'Appointments', icon: 'calendar' },
-    { path: '/patient/medical-record', label: 'My Case / Medical Record', icon: 'folder' },
+    { path: '/patient/medical-record', label: 'Medical Record', icon: 'folder' },
     { path: '/patient/lab-results', label: 'Lab Results', icon: 'lab' },
     { path: '/patient/messages', label: 'Messages', icon: 'message-circle' },
     { path: '/patient/profile', label: 'Profile', icon: 'user' },

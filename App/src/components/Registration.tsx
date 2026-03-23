@@ -193,7 +193,7 @@ const Registration = () => {
         <div className="registration-left-side">
           <div className="doctor-image-container">
             <img 
-              src="./register.jpg" 
+              src="/register.jpg" 
               alt="Medical Team" 
               className="doctor-image"
             />

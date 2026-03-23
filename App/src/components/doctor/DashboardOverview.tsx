@@ -1,18 +1,97 @@
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import api from '../../lib/api';
+import { useNotificationStore } from '../../store/notificationStore';
 import '../../styles/dashboardOverview.css';
 
-const DashboardOverview = () => {
-  const recentActivities = [
-    { id: 1, patient: 'Sarah Johnson', lastUpdate: '2 hours ago', status: 'New diagnosis' },
-    { id: 2, patient: 'Michael Brown', lastUpdate: '5 hours ago', status: 'Lab test requested' },
-    { id: 3, patient: 'Emily Davis', lastUpdate: '1 day ago', status: 'Treatment updated' },
-    { id: 4, patient: 'Robert Wilson', lastUpdate: '2 days ago', status: 'Appointment completed' },
-  ];
+interface DashboardData {
+  totalPatients: number;
+  todayAppointments: { total: number; completed: number; upcoming: number };
+  activeCases: number;
+  recentActivities: { id: string; patient: string; lastUpdate: string; status: string }[];
+}
 
-  const notifications = [
-    { id: 1, message: 'New patient assigned: Sarah Johnson', time: '30 minutes ago' },
-    { id: 2, message: 'Lab result available for Michael Brown', time: '2 hours ago' },
-    { id: 3, message: 'Appointment reminder: Emily Davis tomorrow at 10:00 AM', time: '3 hours ago' },
-  ];
+interface Notification {
+  id: string;
+  type: string;
+  message: string;
+  is_read: boolean;
+  created_at: string;
+}
+
+const typeIcon: Record<string, string> = {
+  new_appointment: '📅',
+  cancelled_appointment: '❌',
+  new_message: '💬',
+};
+
+const typeRoute: Record<string, string> = {
+  new_appointment: '/doctor/appointments',
+  cancelled_appointment: '/doctor/appointments',
+  new_message: '/doctor/messages',
+};
+
+const DashboardOverview = () => {
+  const navigate = useNavigate();
+  const { setUnreadCount, clearUnread, flash } = useNotificationStore();
+  const [data, setData] = useState<DashboardData | null>(null);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    Promise.all([
+      api.get('/doctor/dashboard'),
+      api.get('/doctor/notifications')
+    ])
+      .then(([dashRes, notifRes]) => {
+        setData(dashRes.data);
+        setNotifications(notifRes.data);
+        setUnreadCount(notifRes.data.filter((n: Notification) => !n.is_read).length);
+      })
+      .catch(err => console.error('Dashboard fetch error:', err))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const markAllRead = async () => {
+    await api.patch('/doctor/notifications/read-all');
+    setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+    clearUnread();
+  };
+
+  const removeNotification = async (id: string) => {
+    try {
+      await api.delete(`/doctor/notifications/${id}`);
+      setNotifications(prev => {
+        const updated = prev.filter(n => n.id !== id);
+        const newUnreadCount = updated.filter(n => !n.is_read).length;
+        // Update store after state settles
+        setTimeout(() => setUnreadCount(newUnreadCount), 0);
+        return updated;
+      });
+    } catch (err) {
+      console.error('Failed to remove notification:', err);
+    }
+  };
+
+  const unreadCount = notifications.filter(n => !n.is_read).length;
+
+  const formatTime = (iso: string) => {
+    const diff = Date.now() - new Date(iso).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    return `${Math.floor(hrs / 24)}d ago`;
+  };
+
+  if (loading) return <div className="loading">Loading dashboard...</div>;
+
+  const { totalPatients, todayAppointments, activeCases, recentActivities } = data || {
+    totalPatients: 0,
+    todayAppointments: { total: 0, completed: 0, upcoming: 0 },
+    activeCases: 0,
+    recentActivities: []
+  };
 
   return (
     <div className="dashboard-overview">
@@ -28,11 +107,11 @@ const DashboardOverview = () => {
           </div>
           <div className="card-content">
             <h3>Total Patients</h3>
-            <p className="card-value">142</p>
-            <span className="card-change">+12% from last month</span>
+            <p className="card-value">{totalPatients}</p>
+            <span className="card-change">All registered patients</span>
           </div>
         </div>
-        
+
         <div className="summary-card">
           <div className="card-icon">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -44,28 +123,26 @@ const DashboardOverview = () => {
           </div>
           <div className="card-content">
             <h3>Today's Appointments</h3>
-            <p className="card-value">8</p>
-            <span className="card-change">3 completed, 5 upcoming</span>
+            <p className="card-value">{todayAppointments.total}</p>
+            <span className="card-change">{todayAppointments.completed} completed, {todayAppointments.upcoming} upcoming</span>
           </div>
         </div>
-        
+
         <div className="summary-card">
           <div className="card-icon">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M9 2v6"></path>
-              <path d="M15 2v6"></path>
-              <path d="M12 2v6"></path>
+              <path d="M9 2v6"></path><path d="M15 2v6"></path><path d="M12 2v6"></path>
               <path d="M5 9h14l-1 12H6L5 9z"></path>
               <path d="M8 9V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v4"></path>
             </svg>
           </div>
           <div className="card-content">
             <h3>Pending Lab Results</h3>
-            <p className="card-value">5</p>
-            <span className="card-change">2 results received today</span>
+            <p className="card-value">—</p>
+            <span className="card-change">Coming soon</span>
           </div>
         </div>
-        
+
         <div className="summary-card">
           <div className="card-icon">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -78,12 +155,12 @@ const DashboardOverview = () => {
           </div>
           <div className="card-content">
             <h3>Active Cases</h3>
-            <p className="card-value">27</p>
-            <span className="card-change">3 new cases this week</span>
+            <p className="card-value">{activeCases}</p>
+            <span className="card-change">Confirmed & pending appointments</span>
           </div>
         </div>
       </div>
-      
+
       <div className="dashboard-sections">
         <div className="recent-activities">
           <h2>Recent Activities</h2>
@@ -92,34 +169,60 @@ const DashboardOverview = () => {
               <thead>
                 <tr>
                   <th>Patient Name</th>
-                  <th>Last Update</th>
+                  <th>Date</th>
                   <th>Status</th>
-                  <th>Action</th>
                 </tr>
               </thead>
               <tbody>
-                {recentActivities.map(activity => (
-                  <tr key={activity.id}>
-                    <td>{activity.patient}</td>
-                    <td>{activity.lastUpdate}</td>
-                    <td><span className="status-badge">{activity.status}</span></td>
-                    <td><button className="view-button">View</button></td>
-                  </tr>
-                ))}
+                {recentActivities.length === 0 ? (
+                  <tr><td colSpan={3} style={{ textAlign: 'center', padding: '20px', color: '#999' }}>No recent activity</td></tr>
+                ) : (
+                  recentActivities.map(activity => (
+                    <tr key={activity.id}>
+                      <td>{activity.patient}</td>
+                      <td>{activity.lastUpdate}</td>
+                      <td>
+                        <span className={`status-badge ${activity.status?.toLowerCase()}`}>
+                          {activity.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
         </div>
-        
-        <div className="notifications-panel">
-          <h2>Notifications</h2>
+
+        <div className={`notifications-panel ${flash ? 'flash' : ''}`}>
+          <div className="notifications-header">
+            <h2>Notifications</h2>
+            {unreadCount > 0 && (
+              <button className="mark-read-btn" onClick={markAllRead}>Mark all read</button>
+            )}
+          </div>
           <div className="notifications-list">
-            {notifications.map(notification => (
-              <div key={notification.id} className="notification-item">
-                <p>{notification.message}</p>
-                <span className="notification-time">{notification.time}</span>
-              </div>
-            ))}
+            {notifications.length === 0 ? (
+              <p style={{ color: '#999', padding: '10px 0' }}>No notifications yet</p>
+            ) : (
+              notifications.map(n => (
+                <div key={n.id} className={`notification-item ${!n.is_read ? 'unread' : ''}`}>
+                  <span className="notif-icon">{typeIcon[n.type] || '🔔'}</span>
+                  <div className="notif-content">
+                    <p>{n.message}</p>
+                    <div className="notif-footer">
+                      <span className="notification-time">{formatTime(n.created_at)}</span>
+                      {typeRoute[n.type] && (
+                        <button className="goto-btn" onClick={() => navigate(typeRoute[n.type])}>
+                          show
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <button className="remove-notif-btn" onClick={() => removeNotification(n.id)} title="Remove">✕</button>
+                </div>
+              ))
+            )}
           </div>
         </div>
       </div>

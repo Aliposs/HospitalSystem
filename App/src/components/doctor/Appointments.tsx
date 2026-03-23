@@ -8,8 +8,12 @@ const Appointments = () => {
   const [appointments, setAppointments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Filter states
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [dateFilter, setDateFilter] = useState<string>("");
 
-  // جلب المواعيد من الـ backend
+  // Fetch appointments from backend
   useEffect(() => {
     const fetchAppointments = async () => {
       try {
@@ -26,6 +30,27 @@ const Appointments = () => {
 
     fetchAppointments();
   }, []);
+
+  // Filter appointments based on status and date
+  const getFilteredAppointments = () => {
+    let filtered = [...appointments];
+
+    // Filter by status
+    if (statusFilter !== "all") {
+      filtered = filtered.filter(apt => 
+        apt.status.toLowerCase() === statusFilter.toLowerCase()
+      );
+    }
+
+    // Filter by date
+    if (dateFilter) {
+      filtered = filtered.filter(apt => apt.date === dateFilter);
+    }
+
+    return filtered;
+  };
+
+  const filteredAppointments = getFilteredAppointments();
 
   // باقي الدوال زي ما هي (getDaysInMonth, handlePrevMonth, handleNextMonth, getAppointmentsForDay)
 
@@ -67,18 +92,46 @@ const Appointments = () => {
     );
   };
 
-  const getAppointmentsForDay = (day: number) => {
-    if (!day) return [];
-    const dateStr = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-    return appointments.filter((apt) => apt.date === dateStr);
+  // Handle status change
+  const handleStatusChange = async (appointmentId: string, newStatus: string) => {
+    try {
+      await api.put(`/doctor/appointments/${appointmentId}`, { status: newStatus });
+      
+      // Update local state
+      setAppointments(prev => 
+        prev.map(apt => 
+          apt.id === appointmentId ? { ...apt, status: newStatus } : apt
+        )
+      );
+    } catch (err: any) {
+      console.error('Update appointment error:', err);
+      alert('Failed to update appointment status');
+    }
+  };
+
+  // Handle delete appointment
+  const handleDeleteAppointment = async (appointmentId: string) => {
+    if (!window.confirm('Are you sure you want to delete this appointment?')) {
+      return;
+    }
+
+    try {
+      await api.delete(`/doctor/appointments/${appointmentId}`);
+      
+      // Remove from local state
+      setAppointments(prev => prev.filter(apt => apt.id !== appointmentId));
+    } catch (err: any) {
+      console.error('Delete appointment error:', err);
+      alert('Failed to delete appointment');
+    }
   };
 
   if (loading) return <div className="loading">Loading appointments...</div>;
   if (error) return <div className="error">Error: {error}</div>;
 
   return (
-    <div className="appointments">
-      <div className="appointment-header">
+    <div className="Dappointments">
+      <div className="Dappointment-header">
         <h1>Appointments</h1>
         <div className="view-toggle">
           <button
@@ -97,18 +150,27 @@ const Appointments = () => {
       </div>
 
       {currentView === "list" ? (
-        <div className="appointments-list-container">
+        <div className="Dappointments-list-container">
           <div className="filter-options">
-            <select>
+            <select 
+              value={statusFilter} 
+              onChange={(e) => setStatusFilter(e.target.value)}
+            >
               <option value="all">All Appointments</option>
-              <option value="upcoming">Upcoming</option>
+              <option value="pending">Pending</option>
+              <option value="confirmed">Confirmed</option>
               <option value="completed">Completed</option>
               <option value="cancelled">Cancelled</option>
             </select>
-            <input type="date" className="date-filter" />
+            <input 
+              type="date" 
+              className="date-filter" 
+              value={dateFilter}
+              onChange={(e) => setDateFilter(e.target.value)}
+            />
           </div>
 
-          <div className="appointments-table">
+          <div className="Dappointments-table">
             <table>
               <thead>
                 <tr>
@@ -116,18 +178,20 @@ const Appointments = () => {
                   <th>Date & Time</th>
                   <th>Type</th>
                   <th>Status</th>
-                  <th>Actions</th>
+                  <th>Action</th>
                 </tr>
               </thead>
               <tbody>
-                {appointments.length === 0 ? (
+                {filteredAppointments.length === 0 ? (
                   <tr>
                     <td colSpan={5} style={{ textAlign: "center", padding: "20px" }}>
-                      No appointments found
+                      {statusFilter !== "all" || dateFilter 
+                        ? "No appointments match the selected filters" 
+                        : "No appointments found"}
                     </td>
                   </tr>
                 ) : (
-                  appointments.map((appointment) => (
+                  filteredAppointments.map((appointment) => (
                     <tr key={appointment.id}>
                       <td>{appointment.patient}</td>
                       <td>
@@ -135,12 +199,30 @@ const Appointments = () => {
                       </td>
                       <td>{appointment.type}</td>
                       <td>
-                        <span className={`status-badge ${appointment.status}`}>
-                          {appointment.status}
-                        </span>
+                        <select 
+                          value={appointment.status?.toLowerCase() || 'pending'}
+                          onChange={(e) => handleStatusChange(appointment.id, e.target.value)}
+                          className={`status-select status-${appointment.status?.toLowerCase()}`}
+                        >
+                          <option value="pending">Pending</option>
+                          <option value="confirmed">Confirmed</option>
+                          <option value="completed">Completed</option>
+                          <option value="cancelled">Cancelled</option>
+                        </select>
                       </td>
                       <td>
-                        <button className="action-button">View Details</button>
+                        <button 
+                          className="delete-btn"
+                          onClick={() => handleDeleteAppointment(appointment.id)}
+                          title="Delete appointment"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="3 6 5 6 21 6"></polyline>
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                            <line x1="10" y1="11" x2="10" y2="17"></line>
+                            <line x1="14" y1="11" x2="14" y2="17"></line>
+                          </svg>
+                        </button>
                       </td>
                     </tr>
                   ))

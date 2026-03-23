@@ -15,9 +15,10 @@ interface Doctor {
 
 interface DoctorCardProps {
   doctor: Doctor;
+  onBookAppointment: (doctorId: string, doctorName: string) => void;
 }
 
-const DoctorCard: React.FC<DoctorCardProps> = ({ doctor }) => {
+const DoctorCard: React.FC<DoctorCardProps> = ({ doctor, onBookAppointment }) => {
   // Use profile picture if available, otherwise use a default avatar with doctor's initials
   const avatarUrl = doctor.profilePicture || `https://ui-avatars.com/api/?name=${encodeURIComponent(doctor.name)}&background=4F46E5&color=fff&size=150`;
   
@@ -38,12 +39,17 @@ const DoctorCard: React.FC<DoctorCardProps> = ({ doctor }) => {
         {doctor.rating}
         </p>
         <p>
-          <strong>Availability:</strong> <span className={`badge badge-${doctor.availability === 'Available Today' ? 'success' : doctor.availability === 'Busy' ? 'danger' : 'warning'}`}>{doctor.availability}</span>
+          <strong>Availability:</strong> <span className={`badge badge-${doctor.availability === 'Available' ? 'success' : 'warning'}`}>{doctor.availability}</span>
           </p>
       </div>
       <div className="doctor-card-footer">
         <Link to={`/patient/doctor/${doctor.id}`} className="btn btn-outline">View Profile</Link>
-        <button className="btn btn-primary">Book Appointment</button>
+        <button 
+          onClick={() => onBookAppointment(doctor.id, doctor.name)}
+          className="btn btn-primary"
+        >
+          Book Appointment
+        </button>
       </div>
     </div>
   );

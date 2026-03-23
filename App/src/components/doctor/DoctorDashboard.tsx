@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import {useAuthStore} from '../../store/authStore';
+import { useNotificationStore } from '../../store/notificationStore';
 import api from "../../lib/api";
 import "../../styles/doctorDashboard.css";
 
@@ -9,11 +10,30 @@ const DoctorDashboard = () => {
   const location = useLocation();
   const {user, logout, accessToken} = useAuthStore();
   const [activeTab, setActiveTab] = useState("dashboard");
+  const [isLoading, setIsLoading] = useState(true);
+
+  const { unreadCount, setUnreadCount, triggerFlash } = useNotificationStore();
+
+  useEffect(() => {
+    if (accessToken) {
+      api.get('/doctor/notifications')
+        .then(res => setUnreadCount(res.data.filter((n: any) => !n.is_read).length))
+        .catch(() => {});
+    }
+  }, [accessToken]);
 
   useEffect(()=> {
-    if (!accessToken || !user){
-      navigate("/login");
-    }
+    // Add a small delay to ensure store is hydrated from localStorage
+    const timer = setTimeout(() => {
+      if (!accessToken || !user){
+        console.warn('No auth token or user found, redirecting to login');
+        navigate("/login");
+      } else {
+        setIsLoading(false);
+      }
+    }, 100);
+    
+    return () => clearTimeout(timer);
   }, [accessToken, user, navigate]);
 
   const handleLogout = async() => {
@@ -28,6 +48,7 @@ const DoctorDashboard = () => {
 
   const handleMenuClick = (id: string) => {
     setActiveTab(id);
+    console.log(`Navigating to /doctor/${id}`);
     navigate(`/doctor/${id}`);
   };
 
@@ -158,7 +179,7 @@ const DoctorDashboard = () => {
     }
   };
 
-  if (!user){
+  if (isLoading || !user){
     return <div className="loading">Loading doctor data...</div>;
   }
   
@@ -199,12 +220,17 @@ const DoctorDashboard = () => {
         <div className="dashboard-header">
           <h1>Welcome, Dr. {user.fullName || "Doctor"}</h1>
           <div className="header-actions">
-            <button className="notification-button">
+            <button className="notification-button" onClick={() => {
+              if (!location.pathname.includes('/doctor/dashboard') && !location.pathname.endsWith('/doctor')) {
+                navigate('/doctor/dashboard');
+              }
+              triggerFlash();
+            }}>
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
                 <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
               </svg>
-              <span className="notification-badge">3</span>
+              {unreadCount > 0 && <span className="notification-badge">{unreadCount}</span>}
             </button>
           </div>
         </div>

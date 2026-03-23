@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/Layout';
 import LandingPage from './components/LandingPage';
 import HomePage from './components/HomePage';
@@ -15,7 +15,24 @@ import LabModule from './components/doctor/Lab';
 import Messages from './components/doctor/Messages';
 import DoctorProfile from './components/doctor/DoctorProfile';
 import PatientDashboard from './components/patient/PatientDashboard';
+import AdminLayout from './components/admin/AdminLayout';
+import Dashboard from './components/admin/Dashboard/Dashboard';
+import UserList from './components/admin/Users/UserList';
+import SpecializationList from './components/admin/Specializations/SpecializationList';
+import AuditLogViewer from './components/admin/AuditLogs/AuditLogViewer';
 import './app.css';
+
+// Admin Route Protection Component
+const ProtectedAdminRoute = ({ children }: { children: React.ReactNode }) => {
+  const userRole = localStorage.getItem('userRole');
+  
+  // Check if user is admin
+  if (userRole !== 'admin') {
+    return <Navigate to="/login" replace />;
+  }
+  
+  return <>{children}</>;
+};
 
 function App() {
   const [activeSection, setActiveSection] = useState('home');
@@ -80,6 +97,43 @@ function App() {
         </Route>
 
         <Route path='/patient/*' element={<PatientDashboard/>}/>
+
+        {/* Admin Module */}
+        <Route path='/admin' element={
+          <ProtectedAdminRoute>
+            <AdminLayout>
+              <Dashboard />
+            </AdminLayout>
+          </ProtectedAdminRoute>
+        } />
+        <Route path='/admin/dashboard' element={
+          <ProtectedAdminRoute>
+            <AdminLayout>
+              <Dashboard />
+            </AdminLayout>
+          </ProtectedAdminRoute>
+        } />
+        <Route path='/admin/users' element={
+          <ProtectedAdminRoute>
+            <AdminLayout>
+              <UserList />
+            </AdminLayout>
+          </ProtectedAdminRoute>
+        } />
+        <Route path='/admin/specializations' element={
+          <ProtectedAdminRoute>
+            <AdminLayout>
+              <SpecializationList />
+            </AdminLayout>
+          </ProtectedAdminRoute>
+        } />
+        <Route path='/admin/audit-logs' element={
+          <ProtectedAdminRoute>
+            <AdminLayout>
+              <AuditLogViewer />
+            </AdminLayout>
+          </ProtectedAdminRoute>
+        } />
       </Routes>
     </Router>
   );

@@ -64,12 +64,231 @@ const authenticate = async (req, res, next) => {
   }
 };
 
+module.exports = router;
+
+// GET /api/doctor/notifications
+router.get('/notifications', authenticate, async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('notifications')
+      .select('id, type, message, is_read, created_at')
+      .eq('user_id', req.user.userId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    res.json(data || []);
+  } catch (err) {
+    console.error('Notifications fetch error:', err);
+    res.status(500).json({ error: 'Failed to fetch notifications' });
+  }
+});
+
+// PATCH /api/doctor/notifications/read-all
+router.patch('/notifications/read-all', authenticate, async (req, res) => {
+  try {
+    const { error } = await supabase
+      .from('notifications')
+      .update({ is_read: true })
+      .eq('user_id', req.user.userId)
+      .eq('is_read', false);
+
+    if (error) throw error;
+    res.json({ message: 'All notifications marked as read' });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update notifications' });
+  }
+});
+
+// DELETE /api/doctor/notifications/:id
+router.delete('/notifications/:id', authenticate, async (req, res) => {
+  try {
+    console.log('DELETE notification:', req.params.id, 'for user:', req.user.userId);
+    const { data, error } = await supabase
+      .from('notifications')
+      .delete()
+      .eq('id', req.params.id)
+      .eq('user_id', req.user.userId)
+      .select('id');
+
+    if (error) {
+      console.error('Supabase delete error:', error);
+      throw error;
+    }
+
+    if (!data || data.length === 0) {
+      return res.status(404).json({ error: 'Notification not found' });
+    }
+
+    res.json({ message: 'Notification deleted' });
+  } catch (err) {
+    console.error('Delete notification error:', err);
+    res.status(500).json({ error: 'Failed to delete notification' });
+  }
+});
+
+// POST /api/doctor/diagnoses - Save diagnosis for a patient
+router.post('/diagnoses', authenticate, async (req, res) => {
+  const { patient_id, diagnosis_text } = req.body;
+
+  if (!patient_id || !diagnosis_text?.trim()) {
+    return res.status(400).json({ error: 'Patient ID and diagnosis text are required' });
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('diagnoses')
+      .insert({
+        doctor_id: req.user.userId,
+        patient_id,
+        diagnosis_text: diagnosis_text.trim()
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.status(201).json(data);
+  } catch (err) {
+    console.error('Save diagnosis error:', err);
+    res.status(500).json({ error: 'Failed to save diagnosis' });
+  }
+});
+
+// GET /api/doctor/diagnoses/:patientId - Get latest diagnosis for a patient
+router.get('/diagnoses/:patientId', authenticate, async (req, res) => {
+  const patientId = req.params.patientId;
+
+  try {
+    const { data, error } = await supabase
+      .from('diagnoses')
+      .select('id, diagnosis_text, created_at, updated_at')
+      .eq('doctor_id', req.user.userId)
+      .eq('patient_id', patientId)
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .single();
+
+    if (error && error.code !== 'PGRST116') throw error; // PGRST116 = no rows
+    res.json(data || null);
+  } catch (err) {
+    console.error('Fetch diagnosis error:', err);
+    res.status(500).json({ error: 'Failed to fetch diagnosis' });
+  }
+});
+
+// PUT /api/doctor/diagnoses/:diagnosisId - Update diagnosis
+router.put('/diagnoses/:diagnosisId', authenticate, async (req, res) => {
+  const diagnosisId = req.params.diagnosisId;
+  const { diagnosis_text } = req.body;
+
+  if (!diagnosis_text?.trim()) {
+    return res.status(400).json({ error: 'Diagnosis text is required' });
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('diagnoses')
+      .update({ diagnosis_text: diagnosis_text.trim(), updated_at: new Date().toISOString() })
+      .eq('id', diagnosisId)
+      .eq('doctor_id', req.user.userId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.json(data);
+  } catch (err) {
+    console.error('Update diagnosis error:', err);
+    res.status(500).json({ error: 'Failed to update diagnosis' });
+  }
+});
+
+// GET /api/doctor/dashboard
+router.get('/dashboard', authenticate, async (req, res) => {
+  try {
+    const doctorId = req.user.userId;
+    console.log('Dashboard request for doctor:', doctorId);
+
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 59, 999);
+
+    // Total unique patients + active cases
+    const { data: allApts, error: allAptsError } = await supabase
+      .from('appointments')
+      .select('patient_id, status')
+      .eq('doctor_id', doctorId);
+
+    if (allAptsError) console.error('allApts error:', allAptsError);
+    console.log('All appointments raw:', allApts);
+
+    const uniquePatients = new Set((allApts || []).map(a => a.patient_id));
+    const totalPatients = uniquePatients.size;
+
+    const activeCases = (allApts || []).filter(a =>
+      ['confirmed', 'pending'].includes(a.status?.toLowerCase())
+    );
+    const uniqueActiveCases = new Set(activeCases.map(a => a.patient_id)).size;
+
+    // Today's appointments
+    const { data: todayApts, error: todayError } = await supabase
+      .from('appointments')
+      .select('id, status')
+      .eq('doctor_id', doctorId)
+      .gte('appointment_time', todayStart.toISOString())
+      .lte('appointment_time', todayEnd.toISOString());
+
+    if (todayError) console.error('todayApts error:', todayError);
+    console.log('Today appointments:', todayApts);
+
+    const todayTotal = (todayApts || []).length;
+    const todayCompleted = (todayApts || []).filter(a => a.status?.toLowerCase() === 'completed').length;
+    const todayUpcoming = todayTotal - todayCompleted;
+
+    // Recent activities — from yesterday onwards (1 day back + all future)
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    yesterday.setHours(0, 0, 0, 0);
+
+    const { data: recentData, error: recentError } = await supabase
+      .from('appointments')
+      .select(`
+        id,
+        appointment_time,
+        status,
+        patient:patient_id (full_name)
+      `)
+      .eq('doctor_id', doctorId)
+      .gte('appointment_time', yesterday.toISOString())
+      .order('appointment_time', { ascending: true });
+
+    if (recentError) console.error('recentData error:', recentError);
+    console.log('Recent data:', JSON.stringify(recentData));
+
+    const recentActivities = (recentData || []).map(apt => ({
+      id: apt.id,
+      patient: apt.patient?.full_name || 'Unknown',
+      lastUpdate: new Date(apt.appointment_time).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+      status: apt.status
+    }));
+
+    res.json({
+      totalPatients,
+      todayAppointments: { total: todayTotal, completed: todayCompleted, upcoming: todayUpcoming },
+      activeCases: uniqueActiveCases,
+      recentActivities
+    });
+  } catch (err) {
+    console.error('Dashboard error:', err);
+    res.status(500).json({ error: 'Failed to fetch dashboard data' });
+  }
+});
+
 // GET /profile
 router.get('/profile', authenticate, async (req, res) => {
   try {
     const { data: doctor, error } = await supabase
       .from('doctors')
-      .select('*')
+      .select(`*, email:users(email)`)
       .eq('user_id', req.user.userId)
       .single();
 
@@ -100,6 +319,7 @@ router.get('/profile', authenticate, async (req, res) => {
       ...doctor,
       certificates: formattedCerts
     });
+    console.log("The Doctor Data:=====>>", doctor);
   } catch (err) {
     console.error('Doctor profile error:', err);
     res.status(500).json({ error: 'Server error' });
@@ -181,20 +401,126 @@ router.get('/appointments', authenticate, async (req, res) => {
 
     if (error) throw error;
 
-    // Format the response to match frontend expectation
-    const formatted = data.map(item => ({
-      id: item.id,
-      patient: item.patient?.full_name || 'Unknown Patient',
-      date: new Date(item.appointment_time).toISOString().split('T')[0],
-      time: new Date(item.appointment_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
-      status: item.status,
-      type: 'Consultation' 
-    }));
+    // Format the response to match frontend expectation and remove duplicates
+    const uniqueAppointmentsMap = new Map();
+    (data || []).forEach(item => {
+      const appointmentId = item.id;
+      // Only add if not already in map (keeps first occurrence)
+      if (!uniqueAppointmentsMap.has(appointmentId)) {
+        uniqueAppointmentsMap.set(appointmentId, {
+          id: appointmentId,
+          patient: item.patient?.full_name || 'Unknown Patient',
+          date: new Date(item.appointment_time).toISOString().split('T')[0],
+          time: new Date(item.appointment_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+          status: item.status,
+          type: 'Consultation' 
+        });
+      }
+    });
 
+    const formatted = Array.from(uniqueAppointmentsMap.values());
     res.json(formatted);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to fetch appointments' });
+  }
+});
+
+// PUT /api/doctor/appointments/:id - Update appointment status
+router.put('/appointments/:id', authenticate, async (req, res) => {
+  const appointmentId = req.params.id;
+  const { status } = req.body;
+
+  console.log('PUT /appointments/:id called with:', { appointmentId, status, doctorId: req.user.userId });
+
+  if (!status) {
+    return res.status(400).json({ error: 'Status is required' });
+  }
+
+  const validStatuses = ['pending', 'confirmed', 'completed', 'cancelled'];
+  if (!validStatuses.includes(status.toLowerCase())) {
+    return res.status(400).json({ error: 'Invalid status' });
+  }
+
+  try {
+    // First verify the appointment belongs to this doctor
+    const { data: appointmentCheck, error: checkError } = await supabase
+      .from('appointments')
+      .select('id, doctor_id')
+      .eq('id', appointmentId)
+      .single();
+
+    console.log('Appointment check:', { appointmentCheck, checkError });
+
+    if (checkError || !appointmentCheck) {
+      return res.status(404).json({ error: 'Appointment not found' });
+    }
+
+    if (appointmentCheck.doctor_id !== req.user.userId) {
+      return res.status(403).json({ error: 'Not authorized to update this appointment' });
+    }
+
+    // Update the appointment status
+    const { data, error } = await supabase
+      .from('appointments')
+      .update({ status: status.toLowerCase() })
+      .eq('id', appointmentId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Update error:', error);
+      throw error;
+    }
+
+    console.log('Update successful:', data);
+    res.json({ message: 'Appointment status updated', data });
+  } catch (err) {
+    console.error('Update appointment error:', err);
+    res.status(500).json({ error: 'Failed to update appointment', details: err.message });
+  }
+});
+
+// DELETE /api/doctor/appointments/:id - Delete appointment
+router.delete('/appointments/:id', authenticate, async (req, res) => {
+  const appointmentId = req.params.id;
+
+  console.log('DELETE /appointments/:id called with:', { appointmentId, doctorId: req.user.userId });
+
+  try {
+    // First verify the appointment belongs to this doctor
+    const { data: appointmentCheck, error: checkError } = await supabase
+      .from('appointments')
+      .select('id, doctor_id')
+      .eq('id', appointmentId)
+      .single();
+
+    console.log('Appointment check:', { appointmentCheck, checkError });
+
+    if (checkError || !appointmentCheck) {
+      return res.status(404).json({ error: 'Appointment not found' });
+    }
+
+    if (appointmentCheck.doctor_id !== req.user.userId) {
+      return res.status(403).json({ error: 'Not authorized to delete this appointment' });
+    }
+
+    // Delete the appointment
+    const { error } = await supabase
+      .from('appointments')
+      .delete()
+      .eq('id', appointmentId);
+
+    if (error) {
+      console.error('Delete error:', error);
+      throw error;
+    }
+
+    console.log('Delete successful');
+    res.json({ message: 'Appointment deleted successfully' });
+  } catch (err) {
+    console.error('Delete appointment error:', err);
+    res.status(500).json({ error: 'Failed to delete appointment', details: err.message });
   }
 });
 
@@ -372,14 +698,23 @@ router.get('/patients', authenticate, async (req, res) => {
 
     console.log('Patients fetched:', data?.length || 0, 'rows');
 
-    // Format response to match frontend
-    const formatted = (data || []).map(item => ({
-      id: item.patients.user_id,
-      name: item.patients.full_name || 'Unknown',
-      age: item.patients.age,
-      gender: item.patients.gender || 'N/A',
-      status: 'Active' 
-    }));
+    // Format response to match frontend and remove duplicates
+    const uniquePatientsMap = new Map();
+    (data || []).forEach(item => {
+      const patientId = item.patients.user_id;
+      // Only add if not already in map (keeps first occurrence)
+      if (!uniquePatientsMap.has(patientId)) {
+        uniquePatientsMap.set(patientId, {
+          id: patientId,
+          name: item.patients.full_name || 'Unknown',
+          age: item.patients.age,
+          gender: item.patients.gender || 'N/A',
+          status: 'Active' 
+        });
+      }
+    });
+
+    const formatted = Array.from(uniquePatientsMap.values());
 
     res.status(200).json(formatted);
   } catch (err) {
@@ -388,46 +723,108 @@ router.get('/patients', authenticate, async (req, res) => {
   }
 });
 
+// POST /api/doctor/patients - Add new patient
+router.post('/patients', authenticate, async (req, res) => {
+  try {
+    const { full_name, age, phone, gender, email } = req.body;
+
+    // Validation
+    if (!full_name || !age || !phone || !gender) {
+      return res.status(400).json({ 
+        error: 'Missing required fields: full_name, age, phone, gender' 
+      });
+    }
+
+    // Create user account for the patient (optional - if you want them to have login)
+    // For now, we'll just create a patient record without user account
+    
+    // Insert patient into database
+    const { data: newPatient, error } = await supabase
+      .from('patients')
+      .insert({
+        full_name,
+        age: parseInt(age),
+        phone,
+        gender,
+        email: email || null,
+        // You might want to link to a user_id if creating user account
+        // user_id: userId
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Insert patient error:', error);
+      throw error;
+    }
+
+    // Format response to match frontend expectation
+    const formatted = {
+      id: newPatient.user_id || newPatient.id,
+      name: newPatient.full_name,
+      age: newPatient.age,
+      gender: newPatient.gender,
+      status: 'Active'
+    };
+
+    res.status(201).json(formatted);
+  } catch (err) {
+    console.error('ADD PATIENT ERROR:', err);
+    res.status(500).json({ error: 'Failed to add patient', details: err.message });
+  }
+});
+
 // GET /api/doctor/patients/:id 
 router.get('/patients/:id', authenticate, async (req, res) => {
   const patientId = req.params.id;
+  console.log('GET /patients/:id called with patientId:', patientId);
 
   try {
     // 1. Fetch patient data
     const { data: patient, error: patientError } = await supabase
       .from('patients')
-      .select('user_id, full_name, age, gender, blood_type, address')
+      .select('user_id, full_name, age, gender, blood_type, address, email, phone_number')
       .eq('user_id', patientId)
       .single();
 
+    console.log('Patient query result:', { patient, patientError });
+
     if (patientError || !patient) {
+      console.log('Patient not found for ID:', patientId);
       return res.status(404).json({ error: 'Patient not found' });
     }
 
-    // 2. Fetch appointments - handle null properly
-    const { data: appointmentsData } = await supabase
+    // 2. Fetch ALL appointments for this patient with this doctor
+    const { data: appointmentsData, error: aptsError } = await supabase
       .from('appointments')
-      .select('appointment_time, status, type')
+      .select('appointment_time, status')
       .eq('doctor_id', req.user.userId)
       .eq('patient_id', patientId)
-      .order('appointment_time', { ascending: false })
-      .limit(5);
+      .order('appointment_time', { ascending: false });
 
-    // 3. Ensure appointments is always an array
-    const appointments = appointmentsData || [];
+    console.log('Appointments query - doctor_id:', req.user.userId, 'patient_id:', patientId);
+    console.log('All appointments for patient:', appointmentsData, 'error:', aptsError);
+
+    // 3. Filter for past appointments in JavaScript
+    const now = new Date();
+    const pastAppointments = (appointmentsData || []).filter(apt => 
+      new Date(apt.appointment_time) < now
+    );
     
-    // 4. Build response safely
-    const lastVisit = appointments.length > 0 
-      ? new Date(appointments[0].appointment_time).toLocaleDateString()
-      : 'N/A';
+    console.log('Past appointments filtered:', pastAppointments);
+
+    // 4. Get the most recent past appointment
+    const lastVisit = pastAppointments.length > 0 
+      ? new Date(pastAppointments[0].appointment_time).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+      : 'No past visits';
 
     res.json({
       id: patient.user_id,
       name: patient.full_name,
       age: patient.age,
       gender: patient.gender || 'N/A',
-      email: '',
-      phone: '',
+      email: patient.email || 'N/A',
+      phone: patient.phone_number || 'N/A',
       bloodType: patient.blood_type || 'N/A',
       allergies: 'N/A',
       lastVisit,
@@ -607,9 +1004,10 @@ router.get('/search', async (req, res) => {
       query = query.ilike('full_name', `%${req.query.name}%`);
     }
 
-    // Filter by specialization (exact match)
+    // Filter by specialization (case-insensitive match)
     if (req.query.specialization) {
-      query = query.eq('specialty', req.query.specialization);
+      console.log('Filtering by specialization:', req.query.specialization);
+      query = query.ilike('specialty', `%${req.query.specialization}%`);
     }
 
     // Filter by rating (minimum rating)
@@ -623,7 +1021,12 @@ router.get('/search', async (req, res) => {
 
     const { data, error } = await query;
 
-    if (error) throw error;
+    if (error) {
+      console.error('Supabase query error:', error);
+      throw error;
+    }
+
+    console.log('Search results:', data?.length || 0, 'doctors found');
 
     // Format response to match DoctorCard expectations
     const formatted = (data || []).map(doc => ({
@@ -639,7 +1042,7 @@ router.get('/search', async (req, res) => {
     res.json(formatted);
   } catch (err) {
     console.error('Doctor search error:', err);
-    res.status(500).json({ error: 'Failed to search doctors' });
+    res.status(500).json({ error: 'Failed to search doctors', details: err.message });
   }
 });
 

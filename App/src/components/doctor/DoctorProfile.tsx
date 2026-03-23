@@ -48,11 +48,11 @@ const DoctorProfile = () => {
         setLoading(true);
         const res = await api.get("/doctor/profile");
         const data = res.data;
-        console.log(data);
+        console.log("Retreived data: ", data);
 
         setPersonalInfo({
           fullName: data.full_name || "",
-          email: data.email|| "",
+          email: data.email.email|| "",
           phone: data.phone_number || "",
           gender: data.gender || "",
           dateOfBirth: data.date_of_birth || "",

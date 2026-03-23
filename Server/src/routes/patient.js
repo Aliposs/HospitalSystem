@@ -144,6 +144,198 @@ router.put('/profile', authenticatePatient, upload.single('profilePicture'), asy
   }
 });
 
+// POST /api/patient/appointments - Book a new appointment
+router.post('/appointments', authenticatePatient, async (req, res) => {
+  const { doctor_id, appointment_time } = req.body;
+
+  if (!doctor_id || !appointment_time) {
+    return res.status(400).json({ error: 'Doctor ID and appointment time are required' });
+  }
+
+  try {
+    // Validate appointment time is in the future
+    const appointmentDate = new Date(appointment_time);
+    if (appointmentDate <= new Date()) {
+      return res.status(400).json({ error: 'Appointment time must be in the future' });
+    }
+
+    // Check if doctor exists
+    const { data: doctor, error: doctorError } = await supabase
+      .from('doctors')
+      .select('user_id')
+      .eq('user_id', doctor_id)
+      .single();
+
+    if (doctorError || !doctor) {
+      return res.status(404).json({ error: 'Doctor not found' });
+    }
+
+    // Check for conflicting appointments (same doctor, same time slot - within 30 min)
+    const { data: conflicting } = await supabase
+      .from('appointments')
+      .select('id')
+      .eq('doctor_id', doctor_id)
+      .gte('appointment_time', new Date(appointmentDate.getTime() - 30 * 60000).toISOString())
+      .lte('appointment_time', new Date(appointmentDate.getTime() + 30 * 60000).toISOString())
+      .eq('status', 'Confirmed');
+
+    if (conflicting && conflicting.length > 0) {
+      return res.status(409).json({ error: 'This time slot is already booked. Please choose another time.' });
+    }
+
+    // Create the appointment
+    const { data, error } = await supabase
+      .from('appointments')
+      .insert({
+        doctor_id,
+        patient_id: req.user.userId,
+        appointment_time,
+        status: 'Confirmed'
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    // Notify the doctor
+    const aptDate = new Date(appointment_time).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    await supabase.from('notifications').insert({
+      user_id: doctor_id,
+      type: 'new_appointment',
+      message: `${req.user.fullName} booked an appointment on ${aptDate}`
+    });
+
+    res.status(201).json({
+      message: 'Appointment booked successfully',
+      appointment: data
+    });
+  } catch (err) {
+    console.error('Booking error:', err);
+    res.status(500).json({ error: 'Failed to book appointment', details: err.message });
+  }
+});
+
+// GET /api/patient/appointments - Get all appointments for the patient
+router.get('/appointments', authenticatePatient, async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('appointments')
+      .select(`
+        id,
+        appointment_time,
+        status,
+        doctor:doctor_id (
+          user_id,
+          full_name,
+          specialty
+        )
+      `)
+      .eq('patient_id', req.user.userId)
+      .order('appointment_time', { ascending: false });
+
+    if (error) throw error;
+
+    // Format the response
+    const formatted = (data || []).map(apt => ({
+      id: apt.id,
+      doctor: apt.doctor?.full_name || 'Unknown Doctor',
+      specialization: apt.doctor?.specialty || 'N/A',
+      date: new Date(apt.appointment_time).toISOString().split('T')[0],
+      time: new Date(apt.appointment_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      status: apt.status,
+      appointment_time: apt.appointment_time
+    }));
+
+    res.json(formatted);
+  } catch (err) {
+    console.error('Appointments fetch error:', err);
+    res.status(500).json({ error: 'Failed to fetch appointments' });
+  }
+});
+
+// PUT /api/patient/appointments/:id - Reschedule an appointment
+router.put('/appointments/:id', authenticatePatient, async (req, res) => {
+  const appointmentId = req.params.id;
+  const { appointment_time } = req.body;
+
+  if (!appointment_time) {
+    return res.status(400).json({ error: 'Appointment time is required' });
+  }
+
+  try {
+    // Verify the appointment belongs to this patient
+    const { data: appointment, error: fetchError } = await supabase
+      .from('appointments')
+      .select('id, patient_id')
+      .eq('id', appointmentId)
+      .single();
+
+    if (fetchError || !appointment) {
+      return res.status(404).json({ error: 'Appointment not found' });
+    }
+
+    if (appointment.patient_id !== req.user.userId) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+
+    // Update the appointment
+    const { error: updateError } = await supabase
+      .from('appointments')
+      .update({ appointment_time })
+      .eq('id', appointmentId);
+
+    if (updateError) throw updateError;
+
+    res.json({ message: 'Appointment rescheduled successfully' });
+  } catch (err) {
+    console.error('Reschedule error:', err);
+    res.status(500).json({ error: 'Failed to reschedule appointment' });
+  }
+});
+
+// DELETE /api/patient/appointments/:id - Cancel an appointment
+router.delete('/appointments/:id', authenticatePatient, async (req, res) => {
+  const appointmentId = req.params.id;
+
+  try {
+    // Verify the appointment belongs to this patient
+    const { data: appointment, error: fetchError } = await supabase
+      .from('appointments')
+      .select('id, patient_id, doctor_id, appointment_time')
+      .eq('id', appointmentId)
+      .single();
+
+    if (fetchError || !appointment) {
+      return res.status(404).json({ error: 'Appointment not found' });
+    }
+
+    if (appointment.patient_id !== req.user.userId) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+
+    // Update status to cancelled
+    const { error: updateError } = await supabase
+      .from('appointments')
+      .update({ status: 'Cancelled' })
+      .eq('id', appointmentId);
+
+    if (updateError) throw updateError;
+
+    // Notify the doctor
+    const aptDate = new Date(appointment.appointment_time).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    await supabase.from('notifications').insert({
+      user_id: appointment.doctor_id,
+      type: 'cancelled_appointment',
+      message: `${req.user.fullName} cancelled their appointment on ${aptDate}`
+    });
+
+    res.json({ message: 'Appointment cancelled successfully' });
+  } catch (err) {
+    console.error('Cancel error:', err);
+    res.status(500).json({ error: 'Failed to cancel appointment' });
+  }
+});
+
 router.get('/chats', authenticatePatient, async (req, res) => {
   try {
     const { data: lastMessages, error: msgError } = await supabase
@@ -282,6 +474,13 @@ router.post('/chats/:doctorId', authenticatePatient, messageUpload.single('attac
       .single();
 
     if (error) throw error;
+
+    // Notify the doctor about new message
+    await supabase.from('notifications').insert({
+      user_id: doctorId,
+      type: 'new_message',
+      message: `New message from ${req.user.fullName}`
+    });
 
     res.status(201).json(data);
   } catch (err) {

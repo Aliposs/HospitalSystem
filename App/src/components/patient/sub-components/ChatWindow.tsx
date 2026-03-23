@@ -15,6 +15,29 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ conversationId, conversationDat
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [selectedAttachment, setSelectedAttachment] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [timeRemaining, setTimeRemaining] = useState<number>(600);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [isTimeExpired, setIsTimeExpired] = useState<boolean>(false);
+
+  useEffect(() => {
+    // Check if there's an active conversation session
+    const sessionStartTime = localStorage.getItem('patientSessionStart');
+    if (sessionStartTime) {
+      const elapsed = Math.floor((Date.now() - parseInt(sessionStartTime)) / 1000);
+      const remaining = Math.max(0, 600 - elapsed);
+      
+      if (remaining === 0) {
+        setIsTimeExpired(true);
+      } else {
+        setTimeRemaining(remaining);
+        startTimer();
+      }
+    }
+
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     if (!conversationId) return;
@@ -36,6 +59,21 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ conversationId, conversationDat
 
   const handleSendMessage = async () => {
     if ((!message.trim() && !selectedAttachment) || !conversationId) return;
+
+    // Check if time has expired
+    if (isTimeExpired) {
+      alert('Conversation time has ended. No more messages can be sent.');
+      return;
+    }
+
+    // Start timer if this is the first message
+    const sessionStartTime = localStorage.getItem('patientSessionStart');
+    if (!sessionStartTime) {
+      const now = Date.now();
+      localStorage.setItem('patientSessionStart', now.toString());
+      setTimeRemaining(600);
+      startTimer();
+    }
 
     try {
       const formData = new FormData();
@@ -61,6 +99,25 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ conversationId, conversationDat
     } catch (err){
       alert('Failed to send message');
     }
+  };
+
+  const startTimer = () => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    
+    const sessionStartTime = parseInt(localStorage.getItem('patientSessionStart') || '0');
+    
+    timerRef.current = setInterval(() => {
+      const elapsed = Math.floor((Date.now() - sessionStartTime) / 1000);
+      const remaining = Math.max(0, 600 - elapsed);
+      setTimeRemaining(remaining);
+
+      if (remaining === 0) {
+        setIsTimeExpired(true);
+        alert('10-minute conversation time has ended');
+        localStorage.removeItem('patientSessionStart');
+        if (timerRef.current) clearInterval(timerRef.current);
+      }
+    }, 1000);
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -109,17 +166,9 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ conversationId, conversationDat
           <span className="online-status">Online</span>
         </div>
         <div className="conversation-actions">
-          <button className="action-button">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path>
-            </svg>
-          </button>
-          <button className="action-button">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="3"></circle>
-              <path d="M12 1v6m0 6v6m4.22-13.22l4.24 4.24M1.54 9.96l4.24 4.24M1 12h6m6 0h6"></path>
-            </svg>
-          </button>
+          <div className="timer-display">
+            {Math.floor(timeRemaining / 60)}:{String(timeRemaining % 60).padStart(2, '0')}
+          </div>
         </div>
       </div>
 
@@ -194,11 +243,12 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ conversationId, conversationDat
         <button 
           className="send-button" 
           onClick={handleSendMessage}
-          disabled={(!message.trim() && !selectedAttachment) || !conversationId}
+          disabled={((!message.trim() && !selectedAttachment) || !conversationId) || isTimeExpired}
           style={{ 
-            opacity: ((!message.trim() && !selectedAttachment) || !conversationId) ? 0.5 : 1,
-            cursor: ((!message.trim() && !selectedAttachment) || !conversationId) ? 'not-allowed' : 'pointer'
+            opacity: (((!message.trim() && !selectedAttachment) || !conversationId) || isTimeExpired) ? 0.5 : 1,
+            cursor: (((!message.trim() && !selectedAttachment) || !conversationId) || isTimeExpired) ? 'not-allowed' : 'pointer'
           }}
+          title={isTimeExpired ? "Conversation time has ended" : "Send message"}
         >
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <line x1="22" y1="2" x2="11" y2="13"></line>

@@ -5,6 +5,7 @@ const cookieParser = require('cookie-parser');
 const authRoutes = require('./routes/auth');
 const doctorRoutes = require('./routes/doctor');
 const patientRoutes = require('./routes/patient');
+const adminRoutes = require('./routes/admin');
 
 
 const app = express();
@@ -15,7 +16,7 @@ app.use(cookieParser());
 app.use(cors({
   origin: process.env.CLIENT_URL || 'http://localhost:5173',
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
@@ -33,6 +34,7 @@ app.use('/api/doctor', doctorRoutes);
 
 app.use('/api/patient', patientRoutes);
 
+app.use('/api/admin', adminRoutes);
 
 app.use((req, res) => {
   res.status(404).json({ error: 'Route not found' });

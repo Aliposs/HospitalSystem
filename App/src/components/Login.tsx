@@ -70,7 +70,21 @@ const Login = () => {
       const session = data.session;
 
       let fullName = 'User';
-      if (user.user_metadata?.role === 'doctor') {
+      let userRole = user.user_metadata?.role;
+
+      // Check if user is admin first (from admin_users table)
+      const { data: adminUser } = await supabase
+        .from('admin_users')
+        .select('full_name, account_status, is_deleted')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (adminUser && adminUser.account_status === 'Active' && !adminUser.is_deleted) {
+        // User is an admin
+        userRole = 'admin';
+        fullName = adminUser.full_name;
+      } else if (userRole === 'doctor') {
+        // User is a doctor
         const { data: doc } = await supabase
           .from('doctors')
           .select('full_name')
@@ -78,7 +92,8 @@ const Login = () => {
           .single();
         fullName = doc?.full_name || 'Dr. User';
         
-      } else if (user.user_metadata?.role === 'patient') {
+      } else if (userRole === 'patient') {
+        // User is a patient
         const { data: pat } = await supabase
           .from('patients')
           .select('full_name')
@@ -87,19 +102,23 @@ const Login = () => {
         fullName = pat?.full_name || 'Patient';
       }
 
-      // حفظ في الـ store
+      // Save to store
       setAuth(session.access_token, {
         id: user.id,
         email: user.email,
-        role: user.user_metadata?.role,
+        role: userRole,
         fullName,
       });
 
-      // توجيه حسب الـ role
-      const role = user.user_metadata?.role;
-      if (role === 'doctor') {
+      // Save userRole to localStorage for route protection
+      localStorage.setItem('userRole', userRole || '');
+
+      // Route based on role
+      if (userRole === 'admin') {
+        navigate('/admin/dashboard');
+      } else if (userRole === 'doctor') {
         navigate('/doctor');
-      } else if (role === 'patient') {
+      } else if (userRole === 'patient') {
         navigate('/patient');
       } else {
         navigate('/');
@@ -139,7 +158,7 @@ const Login = () => {
         <div className="login-left-side">
           <div className="doctor-image-container">
             <img 
-              src="./public/login.jpg" 
+              src="/login.jpg" 
               alt="Doctor" 
               className="doctor-image"
             />

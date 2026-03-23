@@ -66,8 +66,8 @@ api.interceptors.request.use(config => {
   const token = useAuthStore.getState().accessToken;
 
   const isAuthRequest = config.url?.includes('/auth/') || config.url?.includes('/refresh');
-  const isPublicRoute = config.url?.includes('/doctor/search') || 
-                        config.url?.includes('/doctor/') && config.method?.toLowerCase() === 'get';
+  // Only /doctor/search is public, all other /doctor/* routes need auth
+  const isPublicRoute = config.url?.includes('/doctor/search');
 
   if (token && !isAuthRequest && !isPublicRoute) {
     config.headers.Authorization = `Bearer ${token}`;
