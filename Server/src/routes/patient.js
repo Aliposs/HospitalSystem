@@ -146,7 +146,7 @@ router.put('/profile', authenticatePatient, upload.single('profilePicture'), asy
 
 // POST /api/patient/appointments - Book a new appointment
 router.post('/appointments', authenticatePatient, async (req, res) => {
-  const { doctor_id, appointment_time } = req.body;
+  const { doctor_id, appointment_time, appointment_type } = req.body;
 
   if (!doctor_id || !appointment_time) {
     return res.status(400).json({ error: 'Doctor ID and appointment time are required' });
@@ -190,7 +190,8 @@ router.post('/appointments', authenticatePatient, async (req, res) => {
         doctor_id,
         patient_id: req.user.userId,
         appointment_time,
-        status: 'Confirmed'
+        appointment_type: appointment_type || 'Consultation',
+        status: 'Pending'
       })
       .select()
       .single();
@@ -250,6 +251,64 @@ router.get('/appointments', authenticatePatient, async (req, res) => {
   } catch (err) {
     console.error('Appointments fetch error:', err);
     res.status(500).json({ error: 'Failed to fetch appointments' });
+  }
+});
+
+// GET /api/patient/diagnoses - Get all diagnoses for the patient
+router.get('/diagnoses', authenticatePatient, async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('diagnoses')
+      .select('id, diagnosis_text, created_at, doctor_id')
+      .eq('patient_id', req.user.userId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    // Fetch doctor names separately
+    const doctorIds = [...new Set((data || []).map(d => d.doctor_id))];
+    let doctorsMap = {};
+
+    if (doctorIds.length > 0) {
+      const { data: doctors } = await supabase
+        .from('doctors')
+        .select('user_id, full_name, specialty')
+        .in('user_id', doctorIds);
+
+      (doctors || []).forEach(doc => {
+        doctorsMap[doc.user_id] = doc;
+      });
+    }
+
+    const formatted = (data || []).map(d => ({
+      id: d.id,
+      diagnosis_text: d.diagnosis_text,
+      created_at: d.created_at,
+      doctor_name: doctorsMap[d.doctor_id]?.full_name || 'Unknown Doctor',
+      specialization: doctorsMap[d.doctor_id]?.specialty || ''
+    }));
+
+    res.json(formatted);
+  } catch (err) {
+    console.error('Diagnoses fetch error:', err);
+    res.status(500).json({ error: 'Failed to fetch diagnoses' });
+  }
+});
+
+// GET /api/patient/pills - Get treatment plan (pills) for the patient
+router.get('/pills', authenticatePatient, async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('pills')
+      .select('id, name, time, taken, frequency, meal_timing')
+      .eq('user_id', req.user.userId)
+      .order('time', { ascending: true });
+
+    if (error) throw error;
+    res.json(data || []);
+  } catch (err) {
+    console.error('Pills fetch error:', err);
+    res.status(500).json({ error: 'Failed to fetch treatment plan' });
   }
 });
 
@@ -368,6 +427,11 @@ router.get('/chats', authenticatePatient, async (req, res) => {
     const chats = doctorIds.map(doctorId => {
       const lastMsg = lastMessages.find(msg => msg.receiver_id === doctorId);
       const doctor = doctors.find(d => d.user_id === doctorId) || {};
+      
+      // Count all unread messages sent to this doctor (messages patient sent that doctor hasn't read)
+      const unreadCount = lastMessages.filter(msg => 
+        msg.receiver_id === doctorId && !msg.is_read
+      ).length;
 
       return {
         id: doctorId,
@@ -376,7 +440,7 @@ router.get('/chats', authenticatePatient, async (req, res) => {
         profilePicture: doctor.profile_picture || null,
         lastMessage: lastMsg?.message_text || '',
         time: lastMsg ? new Date(lastMsg.sent_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
-        unread: lastMsg?.is_read ? 0 : 1
+        unread: unreadCount
       };
     });
 
@@ -486,6 +550,65 @@ router.post('/chats/:doctorId', authenticatePatient, messageUpload.single('attac
   } catch (err) {
     console.error('Patient send message error:', err);
     res.status(500).json({ error: 'Failed to send message', details: err.message });
+  }
+});
+
+// GET /api/patient/notifications
+router.get('/notifications', authenticatePatient, async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('notifications')
+      .select('id, type, message, is_read, created_at')
+      .eq('user_id', req.user.userId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    res.json(data || []);
+  } catch (err) {
+    console.error('Notifications fetch error:', err);
+    res.status(500).json({ error: 'Failed to fetch notifications' });
+  }
+});
+
+// PATCH /api/patient/notifications/read-all
+router.patch('/notifications/read-all', authenticatePatient, async (req, res) => {
+  try {
+    const { error } = await supabase
+      .from('notifications')
+      .update({ is_read: true })
+      .eq('user_id', req.user.userId)
+      .eq('is_read', false);
+
+    if (error) throw error;
+    res.json({ message: 'All notifications marked as read' });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update notifications' });
+  }
+});
+
+// DELETE /api/patient/notifications/:id
+router.delete('/notifications/:id', authenticatePatient, async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('notifications')
+      .delete()
+      .eq('id', req.params.id)
+      .eq('user_id', req.user.userId)
+      .select('id');
+
+    if (error) {
+      console.error('Supabase delete error:', error);
+      throw error;
+    }
+
+    if (!data || data.length === 0) {
+      return res.status(404).json({ error: 'Notification not found' });
+    }
+
+    res.json({ message: 'Notification deleted' });
+  } catch (err) {
+    console.error('Delete notification error:', err);
+    res.status(500).json({ error: 'Failed to delete notification' });
   }
 });
 

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import Icon from './Icon';
 import '../../styles/adminSidebar.css';
 
 interface SidebarProps {
@@ -23,35 +24,31 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
         <ul>
           <li>
             <Link to="/admin/dashboard" className={`nav-link ${isActive('/admin/dashboard')}`}>
-              <span className="icon">📊</span>
+              <Icon name="dashboard" />
               <span className="label">Dashboard</span>
             </Link>
           </li>
-
           <li>
             <Link to="/admin/users" className={`nav-link ${isActive('/admin/users')}`}>
-              <span className="icon">👥</span>
+              <Icon name="users" />
               <span className="label">Users</span>
             </Link>
           </li>
-
           <li>
             <Link to="/admin/specializations" className={`nav-link ${isActive('/admin/specializations')}`}>
-              <span className="icon">🏥</span>
+              <Icon name="specializations" />
               <span className="label">Specializations</span>
             </Link>
           </li>
-
           <li>
             <Link to="/admin/audit-logs" className={`nav-link ${isActive('/admin/audit-logs')}`}>
-              <span className="icon">📋</span>
+              <Icon name="audit-logs" />
               <span className="label">Audit Logs</span>
             </Link>
           </li>
-
           <li>
             <Link to="/admin/settings" className={`nav-link ${isActive('/admin/settings')}`}>
-              <span className="icon">⚙️</span>
+              <Icon name="settings" />
               <span className="label">Settings</span>
             </Link>
           </li>

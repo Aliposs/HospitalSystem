@@ -68,7 +68,8 @@ const DoctorProfile: React.FC = () => {
   const [bookingModal, setBookingModal] = useState({
     show: false,
     selectedDate: '',
-    selectedTime: ''
+    selectedTime: '',
+    appointmentType: ''
   });
   const [bookingLoading, setBookingLoading] = useState(false);
 
@@ -121,16 +122,21 @@ const DoctorProfile: React.FC = () => {
       alert('Please select both date and time');
       return;
     }
+    if (!bookingModal.appointmentType) {
+      alert('Please select an appointment type');
+      return;
+    }
     try {
       setBookingLoading(true);
       const appointmentDateTime = `${bookingModal.selectedDate}T${bookingModal.selectedTime}:00`;
       await api.post('/patient/appointments', {
         doctor_id: id,
-        appointment_time: appointmentDateTime
+        appointment_time: appointmentDateTime,
+        appointment_type: bookingModal.appointmentType
       });
       alert('Appointment booked successfully!');
       setBookedDates(prev => [...prev, bookingModal.selectedDate]);
-      setBookingModal({ show: false, selectedDate: '', selectedTime: '' });
+      setBookingModal({ show: false, selectedDate: '', selectedTime: '', appointmentType: '' });
     } catch (err: any) {
       console.error('Failed to book appointment:', err);
       alert(err.response?.data?.error || 'Failed to book appointment');
@@ -203,7 +209,7 @@ const DoctorProfile: React.FC = () => {
               <button
                 key={time}
                 className="time-slot"
-                onClick={() => setBookingModal({ show: true, selectedDate, selectedTime: time })}
+                onClick={() => setBookingModal({ show: true, selectedDate, selectedTime: time, appointmentType: '' })}
               >
                 {formatTime(time)}
               </button>
@@ -259,7 +265,7 @@ const DoctorProfile: React.FC = () => {
         </div>
         <button
           className="btn btn-book-appointment"
-          onClick={() => setBookingModal({ show: true, selectedDate: '', selectedTime: '' })}
+          onClick={() => setBookingModal({ show: true, selectedDate: '', selectedTime: '', appointmentType: '' })}
         >
           Book Appointment
         </button>
@@ -320,6 +326,22 @@ const DoctorProfile: React.FC = () => {
             </p>
 
             <div className="form-group">
+              <label htmlFor="appointmentType">Appointment Type</label>
+              <select
+                id="appointmentType"
+                value={bookingModal.appointmentType}
+                onChange={(e) => setBookingModal(m => ({ ...m, appointmentType: e.target.value }))}
+              >
+                <option value="">Select type</option>
+                <option value="Consultation">Consultation</option>
+                <option value="Follow-up">Follow-up</option>
+                <option value="Check-up">Check-up</option>
+                <option value="Emergency">Emergency</option>
+                <option value="Procedure">Procedure</option>
+              </select>
+            </div>
+
+            <div className="form-group">
               <label htmlFor="appointmentDate">Select Date</label>
               <input
                 type="date"
@@ -348,7 +370,7 @@ const DoctorProfile: React.FC = () => {
 
             <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem' }}>
               <button
-                onClick={() => setBookingModal({ show: false, selectedDate: '', selectedTime: '' })}
+                onClick={() => setBookingModal({ show: false, selectedDate: '', selectedTime: '', appointmentType: '' })}
                 className="btn btn-outline"
                 style={{ flex: 1, backgroundColor: 'red', color: 'white' }}
                 disabled={bookingLoading}

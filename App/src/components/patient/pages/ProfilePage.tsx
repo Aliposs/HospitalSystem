@@ -312,19 +312,6 @@ const ProfilePage: React.FC = () => {
               disabled={!isEditing}
             />
           </div>
-
-          <div className="form-group">
-            <label>Current Medications</label>
-            <input
-              type="text"
-              value={medicalInfo.medications}
-              onChange={(e) =>
-                setMedicalInfo({ ...medicalInfo, medications: e.target.value })
-              }
-              disabled={!isEditing}
-            />
-          </div>
-
         </div>
       </div>
 

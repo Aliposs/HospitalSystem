@@ -16,8 +16,9 @@ interface Appointment {
 
 const AppointmentsPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState('upcoming');
-  const [appointments, setAppointments] = useState<{ upcoming: Appointment[]; completed: Appointment[]; cancelled: Appointment[] }>({
+  const [appointments, setAppointments] = useState<{ upcoming: Appointment[]; confirmed: Appointment[]; completed: Appointment[]; cancelled: Appointment[] }>({
     upcoming: [],
+    confirmed: [],
     completed: [],
     cancelled: []
   });
@@ -40,11 +41,12 @@ const AppointmentsPage: React.FC = () => {
       setError(null);
       const res = await api.get('/patient/appointments');
       
-      // Organize appointments by status
+      // Organize appointments by status (case-insensitive)
       const organized = {
-        upcoming: res.data.filter((apt: any) => apt.status === 'Confirmed' || apt.status === 'Pending'),
-        completed: res.data.filter((apt: any) => apt.status === 'Completed'),
-        cancelled: res.data.filter((apt: any) => apt.status === 'Cancelled')
+        upcoming: res.data.filter((apt: any) => apt.status?.toLowerCase() === 'pending'),
+        confirmed: res.data.filter((apt: any) => apt.status?.toLowerCase() === 'confirmed'),
+        completed: res.data.filter((apt: any) => apt.status?.toLowerCase() === 'completed'),
+        cancelled: res.data.filter((apt: any) => apt.status?.toLowerCase() === 'cancelled')
       };   
       
       setAppointments(organized);
@@ -101,7 +103,9 @@ const AppointmentsPage: React.FC = () => {
     }
   };
 
-  const renderTable = (data: Appointment[]) => (
+  const renderTable = (data: Appointment[]) => {
+    const safeData = data ?? [];
+    return (
     <table className="data-table">
       <thead>
         <tr>
@@ -113,46 +117,48 @@ const AppointmentsPage: React.FC = () => {
         </tr>
       </thead>
       <tbody>
-        {data.length === 0 ? (
+        {safeData.length === 0 ? (
           <tr>
             <td colSpan={5} style={{ textAlign: 'center', padding: '2rem', color: '#999' }}>
               No appointments found
             </td>
           </tr>
         ) : (
-          data.map(apt => (
+          safeData.map(apt => (
             <tr key={apt.id}>
               <td>{apt.doctor}</td>
               <td>{apt.specialization}</td>
               <td>{apt.date} at {apt.time}</td>
               <td>
                 <span 
-                  className={`badge badge-${apt.status === 'Confirmed' ? 'success' : apt.status === 'Pending' ? 'warning' : apt.status === 'Completed' ? 'success' : 'danger'}`} 
+                  className={`badge badge-${apt.status?.toLowerCase() === 'confirmed' ? 'success' : apt.status?.toLowerCase() === 'pending' ? 'warning' : apt.status?.toLowerCase() === 'completed' ? 'info' : 'danger'}`} 
                   style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}
                 >
-                  {apt.status === 'Confirmed' && <Icon name="check-circle" />}
-                  {apt.status === 'Pending' && <Icon name="clock" />}
-                  {apt.status === 'Completed' && <Icon name="check-circle" />}
-                  {apt.status === 'Cancelled' && <Icon name="x-circle" />}
+                  {apt.status?.toLowerCase() === 'confirmed' && <Icon name="check-circle" />}
+                  {apt.status?.toLowerCase() === 'pending' && <Icon name="clock" />}
+                  {apt.status?.toLowerCase() === 'completed' && <Icon name="check-circle" />}
+                  {apt.status?.toLowerCase() === 'cancelled' && <Icon name="x-circle" />}
                   {apt.status}
                 </span>
               </td>
               <td>
-                {(apt.status === 'Confirmed' || apt.status === 'Pending') && (
+                {(apt.status?.toLowerCase() === 'confirmed' || apt.status?.toLowerCase() === 'pending') && (
                   <>
                     <button 
                       onClick={() => handleRescheduleClick(apt.id)}
                       className="btn btn-outline" 
-                      style={{ fontSize: '0.8rem', padding: '0.4rem 0.8rem', marginRight: '0.5rem' }}
+                      style={{ fontSize: '0.8rem', padding: '0.4rem 0.8rem', marginRight: '0.5rem', border: 'none', background: 'transparent', cursor: 'pointer', color: '#1976d2' }}
+                      title="Reschedule appointment"
                     >
-                      Reschedule
+                      <Icon name="edit" />
                     </button>
                     <button 
                       onClick={() => handleCancelAppointment(apt.id)}
                       className="btn btn-outline" 
-                      style={{ fontSize: '0.8rem', padding: '0.4rem 0.8rem', color: '#d32f2f' }}
+                      style={{ fontSize: '0.8rem', padding: '0.4rem 0.8rem', color: '#d32f2f', border: 'none', background: 'transparent', cursor: 'pointer' }}
+                      title="Cancel appointment"
                     >
-                      Cancel
+                      <Icon name="trash" />
                     </button>
                   </>
                 )}
@@ -162,7 +168,8 @@ const AppointmentsPage: React.FC = () => {
         )}
       </tbody>
     </table>
-  );
+    );
+  };
 
   if (loading) {
     return (
@@ -187,7 +194,7 @@ const AppointmentsPage: React.FC = () => {
 
       <div className="card">
         <div className="tabs">
-          {['upcoming', 'completed', 'cancelled'].map(tab => (
+          {['upcoming', 'confirmed', 'completed', 'cancelled'].map(tab => (
             <div
               key={tab}
               className={`tab ${activeTab === tab ? 'active' : ''}`}
@@ -197,7 +204,7 @@ const AppointmentsPage: React.FC = () => {
             </div>
           ))}
         </div>
-        {renderTable(appointments[activeTab as keyof typeof appointments])}
+        {renderTable(appointments[activeTab as keyof typeof appointments] ?? [])}
       </div>
 
       {/* Reschedule Modal */}

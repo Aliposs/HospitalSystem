@@ -201,6 +201,62 @@ router.put('/diagnoses/:diagnosisId', authenticate, async (req, res) => {
   }
 });
 
+// GET /api/doctor/pills/:patientId - Get pills for a patient
+router.get('/pills/:patientId', authenticate, async (req, res) => {
+  const patientId = req.params.patientId;
+  try {
+    const { data, error } = await supabase
+      .from('pills')
+      .select('id, name, time, taken, frequency, meal_timing, created_at')
+      .eq('user_id', patientId)
+      .order('time', { ascending: true });
+
+    if (error) throw error;
+    res.json(data || []);
+  } catch (err) {
+    console.error('Get pills error:', err);
+    res.status(500).json({ error: 'Failed to fetch pills' });
+  }
+});
+
+// POST /api/doctor/pills - Add a pill for a patient
+router.post('/pills', authenticate, async (req, res) => {
+  const { patient_id, name, time, frequency, meal_timing } = req.body;
+  if (!patient_id || !name || !time) {
+    return res.status(400).json({ error: 'patient_id, name, and time are required' });
+  }
+  try {
+    const { data, error } = await supabase
+      .from('pills')
+      .insert({ user_id: patient_id, name, time, frequency: frequency || '1x daily', meal_timing: meal_timing || 'After meal' })
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.status(201).json(data);
+  } catch (err) {
+    console.error('Add pill error:', err);
+    res.status(500).json({ error: 'Failed to add pill' });
+  }
+});
+
+// DELETE /api/doctor/pills/:pillId - Delete a pill
+router.delete('/pills/:pillId', authenticate, async (req, res) => {
+  const pillId = req.params.pillId;
+  try {
+    const { error } = await supabase
+      .from('pills')
+      .delete()
+      .eq('id', pillId);
+
+    if (error) throw error;
+    res.json({ message: 'Pill deleted' });
+  } catch (err) {
+    console.error('Delete pill error:', err);
+    res.status(500).json({ error: 'Failed to delete pill' });
+  }
+});
+
 // GET /api/doctor/dashboard
 router.get('/dashboard', authenticate, async (req, res) => {
   try {
@@ -394,6 +450,7 @@ router.get('/appointments', authenticate, async (req, res) => {
         id,
         appointment_time,
         status,
+        appointment_type,
         patient:patient_id (full_name)
       `)
       .eq('doctor_id', req.user.userId)
@@ -413,7 +470,7 @@ router.get('/appointments', authenticate, async (req, res) => {
           date: new Date(item.appointment_time).toISOString().split('T')[0],
           time: new Date(item.appointment_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
           status: item.status,
-          type: 'Consultation' 
+          type: item.appointment_type || 'Consultation'
         });
       }
     });
@@ -877,6 +934,11 @@ router.get('/chats', authenticate, async (req, res) => {
     const chats = patientIds.map(patientId => {
       const lastMsg = lastMessages.find(msg => msg.sender_id === patientId);
       const patient = patients.find(p => p.user_id === patientId) || {};
+      
+      // Count all unread messages from this patient
+      const unreadCount = lastMessages.filter(msg => 
+        msg.sender_id === patientId && !msg.is_read
+      ).length;
 
       return {
         id: patientId,
@@ -885,7 +947,7 @@ router.get('/chats', authenticate, async (req, res) => {
         profilePicture: patient.profile_picture || null,
         lastMessage: lastMsg?.message_text || '',
         time: lastMsg ? new Date(lastMsg.sent_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
-        unread: lastMsg?.is_read ? 0 : 1
+        unread: unreadCount
       };
     });
 

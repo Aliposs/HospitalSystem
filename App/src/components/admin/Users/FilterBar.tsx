@@ -65,7 +65,7 @@ const FilterBar: React.FC<FilterBarProps> = ({ onFilterChange }) => {
           onChange={handleChange}
           className="filter-select"
         >
-          <option value="\">All Status</option>
+          <option value="">All Status</option>
           <option value="Active">Active</option>
           <option value="Inactive">Inactive</option>
           <option value="Pending Approval">Pending Approval</option>

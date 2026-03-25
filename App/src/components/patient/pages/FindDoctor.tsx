@@ -14,7 +14,9 @@ const FindDoctor: React.FC = () => {
     doctorId: '',
     doctorName: '',
     selectedDate: '',
-    selectedTime: ''
+    selectedTime: '',
+    bookingSuccess: false,
+    appointmentType: ''
   });
   const [bookingLoading, setBookingLoading] = useState(false);
 
@@ -62,13 +64,19 @@ const FindDoctor: React.FC = () => {
       doctorId,
       doctorName,
       selectedDate: '',
-      selectedTime: ''
+      selectedTime: '',
+      bookingSuccess: false,
+      appointmentType: ''
     });
   };
 
   const handleBookingSubmit = async () => {
     if (!bookingModal.selectedDate || !bookingModal.selectedTime) {
       alert('Please select both date and time');
+      return;
+    }
+    if (!bookingModal.appointmentType) {
+      alert('Please select an appointment type');
       return;
     }
 
@@ -78,16 +86,18 @@ const FindDoctor: React.FC = () => {
       
       await api.post('/patient/appointments', {
         doctor_id: bookingModal.doctorId,
-        appointment_time: appointmentDateTime
+        appointment_time: appointmentDateTime,
+        appointment_type: bookingModal.appointmentType
       });
 
-      alert('Appointment booked successfully!');
       setBookingModal({
         show: false,
         doctorId: '',
         doctorName: '',
         selectedDate: '',
-        selectedTime: ''
+        selectedTime: '',
+        bookingSuccess: true,
+        appointmentType: ''
       });
     } catch (err: any) {
       console.error('Failed to book appointment:', err);
@@ -236,65 +246,97 @@ const FindDoctor: React.FC = () => {
               with <strong>{bookingModal.doctorName}</strong>
             </p>
 
-            <div className="form-group">
-              <label htmlFor="appointmentDate">Select Date</label>
-              <input
-                type="date"
-                id="appointmentDate"
-                value={bookingModal.selectedDate}
-                onChange={(e) => setBookingModal({ ...bookingModal, selectedDate: e.target.value })}
-                min={getMinDate()}
-                max={getMaxDate()}
-              />
-              <small style={{ color: '#999' }}>Available from tomorrow up to 30 days ahead</small>
-            </div>
+            {bookingModal.bookingSuccess ? (
+              <div style={{ textAlign: 'center', padding: '1rem 0' }}>
+                <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>✅</div>
+                <h3 style={{ color: '#2e7d32', marginBottom: '0.5rem' }}>Appointment Request Sent!</h3>
+                <p style={{ color: '#555', marginBottom: '0.5rem' }}>
+                  Your appointment request is currently <strong style={{ color: '#f59e0b' }}>Pending</strong>.
+                </p>
+                <p style={{ color: '#777', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
+                  The doctor will review your request and confirm or update the status. You can track it in <strong>My Appointments</strong>.
+                </p>
+                <button
+                  onClick={() => setBookingModal({ show: false, doctorId: '', doctorName: '', selectedDate: '', selectedTime: '', bookingSuccess: false, appointmentType: '' })}
+                  className="btn btn-primary"
+                  style={{ width: '100%' }}
+                >
+                  OK
+                </button>
+              </div>
+            ) : (
+              <>
+                <div className="form-group">
+                  <label htmlFor="appointmentType">Appointment Type</label>
+                  <select
+                    id="appointmentType"
+                    value={bookingModal.appointmentType}
+                    onChange={(e) => setBookingModal({ ...bookingModal, appointmentType: e.target.value })}
+                  >
+                    <option value="">Select type</option>
+                    <option value="Consultation">Consultation</option>
+                    <option value="Follow-up">Follow-up</option>
+                    <option value="Check-up">Check-up</option>
+                    <option value="Emergency">Emergency</option>
+                    <option value="Procedure">Procedure</option>
+                  </select>
+                </div>
 
-            <div className="form-group">
-              <label htmlFor="appointmentTime">Select Time</label>
-              <select
-                id="appointmentTime"
-                value={bookingModal.selectedTime}
-                onChange={(e) => setBookingModal({ ...bookingModal, selectedTime: e.target.value })}
-              >
-                <option value="">Choose a time slot</option>
-                {getAvailableTimes().map(time => {
-                  const [hours, minutes] = time.split(':');
-                  const hour = parseInt(hours);
-                  const ampm = hour >= 12 ? 'PM' : 'AM';
-                  const displayHour = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour;
-                  return (
-                    <option key={time} value={time}>
-                      {displayHour}:{minutes} {ampm}
-                    </option>
-                  );
-                })}
-              </select>
-            </div>
+                <div className="form-group">
+                  <label htmlFor="appointmentDate">Select Date</label>
+                  <input
+                    type="date"
+                    id="appointmentDate"
+                    value={bookingModal.selectedDate}
+                    onChange={(e) => setBookingModal({ ...bookingModal, selectedDate: e.target.value })}
+                    min={getMinDate()}
+                    max={getMaxDate()}
+                  />
+                  <small style={{ color: '#999' }}>Available from tomorrow up to 30 days ahead</small>
+                </div>
 
-            <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem' }}>
-              <button
-                onClick={() => setBookingModal({
-                  show: false,
-                  doctorId: '',
-                  doctorName: '',
-                  selectedDate: '',
-                  selectedTime: ''
-                })}
-                className="btn btn-outline"
-                style={{ flex: 1, backgroundColor: 'red', color: 'white'}}
-                disabled={bookingLoading}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleBookingSubmit}
-                className="btn btn-primary"
-                style={{ flex: 1 }}
-                disabled={bookingLoading}
-              >
-                {bookingLoading ? 'Booking...' : 'Confirm Booking'}
-              </button>
-            </div>
+                <div className="form-group">
+                  <label htmlFor="appointmentTime">Select Time</label>
+                  <select
+                    id="appointmentTime"
+                    value={bookingModal.selectedTime}
+                    onChange={(e) => setBookingModal({ ...bookingModal, selectedTime: e.target.value })}
+                  >
+                    <option value="">Choose a time slot</option>
+                    {getAvailableTimes().map(time => {
+                      const [hours, minutes] = time.split(':');
+                      const hour = parseInt(hours);
+                      const ampm = hour >= 12 ? 'PM' : 'AM';
+                      const displayHour = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour;
+                      return (
+                        <option key={time} value={time}>
+                          {displayHour}:{minutes} {ampm}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
+
+                <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem' }}>
+                  <button
+                    onClick={() => setBookingModal({ show: false, doctorId: '', doctorName: '', selectedDate: '', selectedTime: '', bookingSuccess: false, appointmentType: '' })}
+                    className="btn btn-outline"
+                    style={{ flex: 1, backgroundColor: 'red', color: 'white' }}
+                    disabled={bookingLoading}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleBookingSubmit}
+                    className="btn btn-primary"
+                    style={{ flex: 1 }}
+                    disabled={bookingLoading}
+                  >
+                    {bookingLoading ? 'Booking...' : 'Confirm Booking'}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

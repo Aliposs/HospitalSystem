@@ -126,6 +126,12 @@ const Appointments = () => {
     }
   };
 
+  const getAppointmentsForDay = (day: number) => {
+    if (!day) return [];
+    const dateStr = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    return appointments.filter((apt) => apt.date === dateStr);
+  };
+
   if (loading) return <div className="loading">Loading appointments...</div>;
   if (error) return <div className="error">Error: {error}</div>;
 

@@ -144,9 +144,9 @@
 }
 
 .status-select.status-completed {
-  background-color: rgba(39, 174, 96, 0.1);
-  color: #27ae60;
-  border-color: #27ae60;
+  background-color: rgba(21, 123, 240, 0.1);
+  color: #273bae;
+  border-color: #0f67eb;
 }
 
 .status-select.status-cancelled {

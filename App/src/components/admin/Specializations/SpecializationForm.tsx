@@ -100,7 +100,7 @@ const SpecializationForm: React.FC<SpecializationFormProps> = ({
             <label htmlFor="description">Description</label>
             <textarea
               id="description"
-              name="description\"
+              name="description"
               value={formData.description}
               onChange={handleChange}
               placeholder="Enter specialization description"

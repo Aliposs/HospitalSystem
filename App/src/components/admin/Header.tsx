@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
+import Icon from './Icon';
 import '../../styles/adminHeader.css';
 
 interface HeaderProps {
@@ -27,28 +28,24 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar, sidebarOpen }) => {
     <header className="admin-header">
       <div className="header-left">
         <button className="toggle-sidebar-btn" onClick={onToggleSidebar}>
-          <span className="hamburger">☰</span>
+          <Icon name="menu" />
         </button>
-        <h1 className="page-title">Healthcare Admin Dashboard</h1>
+        <h1 className="page-title">Dashboard</h1> {/* Simplified title */}
       </div>
 
       <div className="header-right">
         <div className="user-menu">
           <button className="user-btn" onClick={toggleUserMenu}>
-            <span className="user-icon">👤</span>
+            <Icon name="user" />
             <span className="user-name">{user?.fullName || 'Admin'}</span>
-            <span className="dropdown-icon">▼</span>
+            <Icon name="chevron-down" />
           </button>
 
           {showUserMenu && (
             <div className="user-dropdown">
-              <a href="#profile" className="dropdown-item">
-                Profile
-              </a>
-              <a href="#settings" className="dropdown-item">
-                Settings
-              </a>
-              <hr />
+              <a href="#profile" className="dropdown-item">Profile</a>
+              <a href="#settings" className="dropdown-item">Settings</a>
+              <div className="dropdown-divider"></div> {/* Use class for divider */}
               <button className="dropdown-item logout-btn" onClick={handleLogout}>
                 Logout
               </button>
