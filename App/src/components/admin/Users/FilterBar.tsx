@@ -51,10 +51,10 @@ const FilterBar: React.FC<FilterBarProps> = ({ onFilterChange }) => {
           className="filter-select"
         >
           <option value="">All Roles</option>
-          <option value="Doctor">Doctor</option>
-          <option value="Patient">Patient</option>
-          <option value="Lab">Lab</option>
-          <option value="Admin">Admin</option>
+          <option value="doctor">Doctor</option>
+          <option value="patient">Patient</option>
+          <option value="lab">Lab</option>
+          <option value="admin">Admin</option>
         </select>
       </div>
 
@@ -66,13 +66,12 @@ const FilterBar: React.FC<FilterBarProps> = ({ onFilterChange }) => {
           className="filter-select"
         >
           <option value="">All Status</option>
-          <option value="Active">Active</option>
-          <option value="Inactive">Inactive</option>
-          <option value="Pending Approval">Pending Approval</option>
+          <option value="active">Active</option>
+          <option value="pending">Pending Approval</option>
         </select>
       </div>
       <button className="reset-btn" onClick={handleReset}>
-        🔄 Reset
+        <i className="fa-solid fa-filter-circle-xmark" style={{color: "rgb(14, 78, 129)"}}></i> Reset
       </button>
     </div>
   );

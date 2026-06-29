@@ -7,11 +7,12 @@
 
 /* --- Page Header --- */
 .page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
   padding-bottom: 1rem;
   border-bottom: 1px solid var(--border-color);
+  flex-direction: row !important;
 }
 
 .page-header h2 {
@@ -62,6 +63,15 @@
   background-color: var(--hover-bg);
 }
 
+.specialization-table tbody tr.inactive-row {
+  opacity: 0.7;
+  background-color: #fafafa;
+}
+
+.specialization-table tbody tr.inactive-row:hover {
+  background-color: #f5f5f5;
+}
+
 .specialization-table td {
   padding: 1.25rem;
   color: var(--text-color);
@@ -109,8 +119,9 @@
 }
 
 .status-badge.inactive {
-  background-color: var(--badge-secondary-bg, #e9ecef);
-  color: var(--text-muted);
+  background-color: #ffebee;
+  color: #c62828;
+  border: 1px solid #ef5350;
 }
 
 .actions-cell {

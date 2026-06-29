@@ -72,12 +72,11 @@
 
 .dashboard-sections {
   display: grid;
-  grid-template-columns: 2fr 1fr;
+  grid-template-columns: 1fr;
   gap: 30px;
 }
 
-.recent-activities,
-.notifications-panel {
+.recent-activities {
   background-color: white;
   border-radius: 8px;
   padding: 25px;
@@ -85,18 +84,7 @@
   transition: box-shadow 0.3s ease;
 }
 
-@keyframes notif-flash {
-  0%   { box-shadow: 0 0 0 0 rgba(52, 152, 219, 0.6); }
-  50%  { box-shadow: 0 0 0 8px rgba(52, 152, 219, 0.2); }
-  100% { box-shadow: 0 0 0 0 rgba(52, 152, 219, 0); }
-}
-
-.notifications-panel.flash {
-  animation: notif-flash 0.8s ease-out;
-}
-
-.recent-activities h2,
-.notifications-panel h2 {
+.recent-activities h2 {
   margin: 0 0 20px 0;
   color: #2c3e50;
   font-size: 1.3rem;
@@ -148,121 +136,6 @@
 .status-badge.cancelled {
   background-color: rgba(231, 76, 60, 0.15);
   color: #e74c3c;
-}
-
-.notifications-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.notifications-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 15px;
-}
-
-.notifications-header h2 {
-  margin: 0;
-}
-
-.mark-read-btn {
-  background: none;
-  border: 1px solid #3498db;
-  color: #3498db;
-  border-radius: 4px;
-  padding: 4px 10px;
-  font-size: 0.8rem;
-  cursor: pointer;
-}
-
-.mark-read-btn:hover {
-  background-color: #3498db;
-  color: white;
-}
-
-.notification-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 12px 40px 12px 12px;
-  border-radius: 8px;
-  background-color: #f8f9fa;
-  transition: background 0.2s;
-  position: relative;
-}
-
-.notification-item.unread {
-  background-color: rgba(52, 152, 219, 0.08);
-  border-left: 3px solid #3498db;
-}
-
-.notif-icon {
-  font-size: 1.2rem;
-  flex-shrink: 0;
-}
-
-.notif-content p {
-  margin: 0 0 4px 0;
-  color: #2c3e50;
-  font-size: 0.9rem;
-  padding-bottom: 5px;
-}
-
-.notif-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.notification-time {
-  font-size: 0.78rem;
-  color: #7f8c8d;
-}
-
-.goto-btn {
-  position: absolute;
-  bottom: 10px;
-  right: 12px;
-  background: none;
-  border: none;
-  color: #3498db;
-  font-size: 0.9rem;
-  cursor: pointer;
-  padding: 0;
-  font-weight: 500;
-  white-space: nowrap;
-}
-
-.goto-btn:hover {
-  text-decoration: none;
-  color: #2c3e50;
-}
-
-.remove-notif-btn {
-  position: absolute;
-  top: 15px;
-  right: 8px;
-  transform: translateY(-50%);
-  background: #e0e0e0;
-  border: none;
-  color: #666;
-  font-size: 0.7rem;
-  cursor: pointer;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background 0.2s, color 0.2s;
-}
-
-.remove-notif-btn:hover {
-  background: #e74c3c;
-  color: white;
 }
 
 @media (max-width: 768px) {

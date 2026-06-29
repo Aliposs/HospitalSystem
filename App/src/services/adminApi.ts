@@ -188,6 +188,28 @@ export const adminApi = {
   getAdminAuditLogs: async (adminId: string): Promise<AuditLogResponse> => {
     const response = await api.get(`/admin/audit-logs/admin/${adminId}`);
     return handleResponse(response);
+  },
+
+  // ============================================================================
+  // DOCTOR AVAILABILITY API
+  // ============================================================================
+
+  // Get doctor availability
+  getDoctorAvailability: async (doctorId: string): Promise<any[]> => {
+    const response = await api.get(`/admin/doctors/${doctorId}/availability`);
+    return handleResponse(response);
+  },
+
+  // Save doctor availability
+  saveDoctorAvailability: async (doctorId: string, changes: any): Promise<any> => {
+    const response = await api.post(`/admin/doctors/${doctorId}/availability`, changes);
+    return handleResponse(response);
+  },
+
+  // Validate availability slot
+  validateAvailabilitySlot: async (slot: any): Promise<any> => {
+    const response = await api.post('/admin/doctors/availability/validate', slot);
+    return handleResponse(response);
   }
 };
 

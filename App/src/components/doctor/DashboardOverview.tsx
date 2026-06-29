@@ -1,7 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import api from '../../lib/api';
-import { useNotificationStore } from '../../store/notificationStore';
 import '../../styles/dashboardOverview.css';
 
 interface DashboardData {
@@ -11,78 +9,26 @@ interface DashboardData {
   recentActivities: { id: string; patient: string; lastUpdate: string; status: string }[];
 }
 
-interface Notification {
-  id: string;
-  type: string;
-  message: string;
-  is_read: boolean;
-  created_at: string;
-}
-
-const typeIcon: Record<string, string> = {
-  new_appointment: '📅',
-  cancelled_appointment: '❌',
-  new_message: '💬',
-};
-
-const typeRoute: Record<string, string> = {
-  new_appointment: '/doctor/appointments',
-  cancelled_appointment: '/doctor/appointments',
-  new_message: '/doctor/messages',
-};
-
 const DashboardOverview = () => {
-  const navigate = useNavigate();
-  const { setUnreadCount, clearUnread, flash } = useNotificationStore();
   const [data, setData] = useState<DashboardData | null>(null);
-  const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
+  const [pendingLabRequests, setPendingLabRequests] = useState<number | null>(null);
 
   useEffect(() => {
-    Promise.all([
-      api.get('/doctor/dashboard'),
-      api.get('/doctor/notifications')
-    ])
-      .then(([dashRes, notifRes]) => {
-        setData(dashRes.data);
-        setNotifications(notifRes.data);
-        setUnreadCount(notifRes.data.filter((n: Notification) => !n.is_read).length);
-      })
+    api.get('/doctor/dashboard')
+      .then(res => setData(res.data))
       .catch(err => console.error('Dashboard fetch error:', err))
       .finally(() => setLoading(false));
+
+    // Fetch pending lab requests count
+    api.get('/labs/doctor/requests')
+      .then(res => {
+        const raw = res.data?.data || [];
+        const pending = raw.filter((r: any) => r.status === 'Pending').length;
+        setPendingLabRequests(pending);
+      })
+      .catch(() => setPendingLabRequests(0));
   }, []);
-
-  const markAllRead = async () => {
-    await api.patch('/doctor/notifications/read-all');
-    setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
-    clearUnread();
-  };
-
-  const removeNotification = async (id: string) => {
-    try {
-      await api.delete(`/doctor/notifications/${id}`);
-      setNotifications(prev => {
-        const updated = prev.filter(n => n.id !== id);
-        const newUnreadCount = updated.filter(n => !n.is_read).length;
-        // Update store after state settles
-        setTimeout(() => setUnreadCount(newUnreadCount), 0);
-        return updated;
-      });
-    } catch (err) {
-      console.error('Failed to remove notification:', err);
-    }
-  };
-
-  const unreadCount = notifications.filter(n => !n.is_read).length;
-
-  const formatTime = (iso: string) => {
-    const diff = Date.now() - new Date(iso).getTime();
-    const mins = Math.floor(diff / 60000);
-    if (mins < 60) return `${mins}m ago`;
-    const hrs = Math.floor(mins / 60);
-    if (hrs < 24) return `${hrs}h ago`;
-    return `${Math.floor(hrs / 24)}d ago`;
-  };
 
   if (loading) return <div className="loading">Loading dashboard...</div>;
 
@@ -138,8 +84,10 @@ const DashboardOverview = () => {
           </div>
           <div className="card-content">
             <h3>Pending Lab Results</h3>
-            <p className="card-value">—</p>
-            <span className="card-change">Coming soon</span>
+            <p className="card-value">{pendingLabRequests ?? '—'}</p>
+            <span className="card-change">
+              {pendingLabRequests === null ? 'Loading...' : pendingLabRequests === 0 ? 'No pending requests' : 'Pending & processing'}
+            </span>
           </div>
         </div>
 
@@ -191,38 +139,6 @@ const DashboardOverview = () => {
                 )}
               </tbody>
             </table>
-          </div>
-        </div>
-
-        <div className={`notifications-panel ${flash ? 'flash' : ''}`}>
-          <div className="notifications-header">
-            <h2>Notifications</h2>
-            {unreadCount > 0 && (
-              <button className="mark-read-btn" onClick={markAllRead}>Mark all read</button>
-            )}
-          </div>
-          <div className="notifications-list">
-            {notifications.length === 0 ? (
-              <p style={{ color: '#999', padding: '10px 0' }}>No notifications yet</p>
-            ) : (
-              notifications.map(n => (
-                <div key={n.id} className={`notification-item ${!n.is_read ? 'unread' : ''}`}>
-                  <span className="notif-icon">{typeIcon[n.type] || '🔔'}</span>
-                  <div className="notif-content">
-                    <p>{n.message}</p>
-                    <div className="notif-footer">
-                      <span className="notification-time">{formatTime(n.created_at)}</span>
-                      {typeRoute[n.type] && (
-                        <button className="goto-btn" onClick={() => navigate(typeRoute[n.type])}>
-                          show
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                  <button className="remove-notif-btn" onClick={() => removeNotification(n.id)} title="Remove">✕</button>
-                </div>
-              ))
-            )}
           </div>
         </div>
       </div>

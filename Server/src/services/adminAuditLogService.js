@@ -94,19 +94,24 @@ const getAuditLogs = async (filters = {}, pagination = {}) => {
 
     if (error) throw error;
 
-    // Fetch admin names
+    // Fetch admin names from auth.users using admin API
     const adminIds = [...new Set(data.map(log => log.admin_id))];
-    const { data: admins } = await supabase
-      .from('auth.users')
-      .select('id, email')
-      .in('id', adminIds);
+    let adminMap = {};
+    
+    try {
+      const { data: authUsers } = await supabase.auth.admin.listUsers({ perPage: 1000 });
+      (authUsers?.users || []).forEach(user => {
+        adminMap[user.id] = user.email;
+      });
+    } catch (err) {
+      console.error('Error fetching admin emails:', err);
+    }
 
     // Map admin names to logs
     const logs = data.map(log => {
-      const admin = admins?.find(a => a.id === log.admin_id);
       return {
         ...log,
-        admin_name: admin?.email || 'Unknown'
+        admin_name: adminMap[log.admin_id] || 'Unknown'
       };
     });
 
@@ -138,16 +143,18 @@ const getAuditLogById = async (logId) => {
 
     if (error) throw error;
 
-    // Get admin name
-    const { data: admin } = await supabase
-      .from('auth.users')
-      .select('email')
-      .eq('id', data.admin_id)
-      .single();
+    // Get admin name from auth.users using admin API
+    let adminEmail = 'Unknown';
+    try {
+      const { data: authUser } = await supabase.auth.admin.getUserById(data.admin_id);
+      adminEmail = authUser?.user?.email || 'Unknown';
+    } catch (err) {
+      console.error('Error fetching admin email:', err);
+    }
 
     return {
       ...data,
-      admin_name: admin?.email || 'Unknown'
+      admin_name: adminEmail
     };
   } catch (error) {
     console.error('Error getting audit log:', error);
@@ -176,19 +183,24 @@ const getResourceAuditLogs = async (resourceType, resourceId, pagination = {}) =
 
     if (error) throw error;
 
-    // Fetch admin names
+    // Fetch admin names from auth.users using admin API
     const adminIds = [...new Set(data.map(log => log.admin_id))];
-    const { data: admins } = await supabase
-      .from('auth.users')
-      .select('id, email')
-      .in('id', adminIds);
+    let adminMap = {};
+    
+    try {
+      const { data: authUsers } = await supabase.auth.admin.listUsers({ perPage: 1000 });
+      (authUsers?.users || []).forEach(user => {
+        adminMap[user.id] = user.email;
+      });
+    } catch (err) {
+      console.error('Error fetching admin emails:', err);
+    }
 
     // Map admin names to logs
     const logs = data.map(log => {
-      const admin = admins?.find(a => a.id === log.admin_id);
       return {
         ...log,
-        admin_name: admin?.email || 'Unknown'
+        admin_name: adminMap[log.admin_id] || 'Unknown'
       };
     });
 

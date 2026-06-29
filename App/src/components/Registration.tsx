@@ -85,69 +85,46 @@ const Registration = () => {
     setErrors({});
 
     try {
-      // 1. Sign Up in Supabase Auth with OTP email
-      const { data: authUser, error: signUpError } = await supabase.auth.signUp({
-        email: formData.email,
-        password: formData.password,
-        options: {
-          data: {
-            role: userType,
-            full_name: formData.fullName,
-          },
-          emailRedirectTo: undefined, 
-        },
+      // Use backend API endpoint instead of direct Supabase calls
+      // This allows the backend to send OTP emails
+      
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+      
+      // Prepare FormData for file upload
+      const formDataToSend = new FormData();
+      formDataToSend.append('fullName', formData.fullName);
+      formDataToSend.append('email', formData.email);
+      formDataToSend.append('phoneDigits', formData.phoneDigits);
+      formDataToSend.append('password', formData.password);
+      formDataToSend.append('confirmPassword', formData.confirmPassword);
+      formDataToSend.append('userType', userType);
+
+      if (userType === 'doctor') {
+        formDataToSend.append('specialty', formData.specialty);
+        if (formData.licenseFile) {
+          formDataToSend.append('licenseFile', formData.licenseFile);
+        }
+      } else {
+        formDataToSend.append('age', formData.age);
+        formDataToSend.append('bloodType', formData.bloodType);
+        formDataToSend.append('address', formData.address);
+      }
+
+      // Call backend API instead of Supabase directly
+      const response = await fetch(`${apiUrl}/auth/register`, {
+        method: 'POST',
+        body: formDataToSend,
       });
 
-      if (signUpError) throw signUpError;
+      const result = await response.json();
 
-      const userId = authUser.user!.id;
-
-      // 2. Upload license (only for doctors)
-      let licenseUrl: string | null = null;
-      if (userType === 'doctor') {
-        if (!formData.licenseFile) throw new Error('License file required for doctors');
-
-        const file = formData.licenseFile;
-        const fileExt = file.name.split('.').pop();
-        const fileName = `${userId}-${Date.now()}.${fileExt}`;
-        const filePath = `licenses/${fileName}`;
-
-        const { error: uploadError } = await supabase.storage
-          .from('licenses')
-          .upload(filePath, file);
-
-        if (uploadError) throw uploadError;
-
-        const { data: urlData } = supabase.storage.from('licenses').getPublicUrl(filePath);
-        licenseUrl = urlData.publicUrl;
+      if (!response.ok) {
+        throw new Error(result.error || 'Registration failed');
       }
 
-      // 3. Create profile record
-      if (userType === 'doctor') {
-        const { error } = await supabase.from('doctors').insert({
-          user_id: userId,
-          full_name: formData.fullName,
-          phone_number: `+20${formData.phoneDigits}`,
-          specialty: formData.specialty,
-          license_file_path: licenseUrl,
-        });
-
-        if (error) throw error;
-      } else {
-        const { error } = await supabase.from('patients').insert({
-          user_id: userId,
-          full_name: formData.fullName,
-          phone_number: `+20${formData.phoneDigits}`,
-          age: Number(formData.age),
-          blood_type: formData.bloodType,
-          address: formData.address,
-        });
-
-        if (error) throw error;
-      }
-
-      // 4. Redirect to verification page
-      navigate('/verify-email', { state: { email: formData.email } });
+      // Backend handles registration and OTP email sending
+      // Redirect to verification page
+      navigate('/verify-email', { state: { email: formData.email, theme: 'green' } });
     } catch (err: any) {
       console.error('Registration error:', err);
       const msg = err?.message || 'Registration failed';
@@ -201,7 +178,7 @@ const Registration = () => {
           <div className="welcome-section">
             <h2>Join to <span className="highlight">MediCare</span></h2>
             <h3>Hospital Management System</h3>
-            <p>Register now to access our comprehensive healthcare platform and connect with medical professionals</p>
+            <p className='paragraph'>Register now to access our comprehensive healthcare platform and connect with medical professionals</p>
           </div>
         </div>
 
@@ -381,7 +358,7 @@ const Registration = () => {
             </form>
 
             <p className="login-link">
-              Already have an account? <Link to="/login">Login here</Link>
+              Already have an account? <Link to="/login" state={{ theme: 'green' }}>Login here</Link>
             </p>
           </div>
         </div>

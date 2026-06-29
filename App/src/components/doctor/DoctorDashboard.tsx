@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import {useAuthStore} from '../../store/authStore';
 import { useNotificationStore } from '../../store/notificationStore';
+import NotificationDropdown from './NotificationDropdown';
 import api from "../../lib/api";
 import "../../styles/doctorDashboard.css";
 
@@ -11,16 +12,24 @@ const DoctorDashboard = () => {
   const {user, logout, accessToken} = useAuthStore();
   const [activeTab, setActiveTab] = useState("dashboard");
   const [isLoading, setIsLoading] = useState(true);
+  const [notificationDropdownOpen, setNotificationDropdownOpen] = useState(false);
+  const headerRef = useRef<HTMLDivElement>(null);
 
-  const { unreadCount, setUnreadCount, triggerFlash } = useNotificationStore();
+  const { unreadCount, setUnreadCount, triggerFlash, flash } = useNotificationStore();
 
   useEffect(() => {
     if (accessToken) {
-      api.get('/doctor/notifications')
-        .then(res => setUnreadCount(res.data.filter((n: any) => !n.is_read).length))
-        .catch(() => {});
+      const fetchCount = () => {
+        api.get('/doctor/notifications')
+          .then(res => setUnreadCount(res.data.filter((n: any) => !n.is_read).length))
+          .catch(() => {});
+      };
+      fetchCount();
+      // Poll every 30 seconds so new notifications appear without a page refresh
+      const interval = setInterval(fetchCount, 30000);
+      return () => clearInterval(interval);
     }
-  }, [accessToken]);
+  }, [accessToken, setUnreadCount]);
 
   useEffect(()=> {
     // Add a small delay to ensure store is hydrated from localStorage
@@ -36,21 +45,52 @@ const DoctorDashboard = () => {
     return () => clearTimeout(timer);
   }, [accessToken, user, navigate]);
 
+  // Close dropdown on outside click
+  useEffect(() => {
+    if (!notificationDropdownOpen) return;
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (headerRef.current && !headerRef.current.contains(event.target as Node)) {
+        setNotificationDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [notificationDropdownOpen]);
+
   const handleLogout = async() => {
     try{
       await api.post("/auth/logout");
     } catch (err){
       console.warn('Logout API failed (non-critical):', err);
     }
-    logout();
+    await logout();
     navigate("/login");
   };
 
   const handleMenuClick = (id: string) => {
     setActiveTab(id);
-    console.log(`Navigating to /doctor/${id}`);
     navigate(`/doctor/${id}`);
   };
+
+  // Update active tab when navigating from notification
+  useEffect(() => {
+    const path = location.pathname;
+    if (path.includes('/doctor/appointments')) {
+      setActiveTab('appointments');
+    } else if (path.includes('/doctor/messages')) {
+      setActiveTab('messages');
+    } else if (path.includes('/doctor/patients')) {
+      setActiveTab('patients');
+    } else if (path.includes('/doctor/lab')) {
+      setActiveTab('lab');
+    } else if (path.includes('/doctor/profile')) {
+      setActiveTab('profile');
+    } else {
+      setActiveTab('dashboard');
+    }
+  }, [location.pathname]);
 
 
   const menuItems = [
@@ -217,21 +257,28 @@ const DoctorDashboard = () => {
       </div>
       
       <div className="dashboard-main">
-        <div className="dashboard-header">
+        <div className="dashboard-header" ref={headerRef}>
           <h1>Welcome, Dr. {user.fullName || "Doctor"}</h1>
           <div className="header-actions">
-            <button className="notification-button" onClick={() => {
-              if (!location.pathname.includes('/doctor/dashboard') && !location.pathname.endsWith('/doctor')) {
-                navigate('/doctor/dashboard');
-              }
-              triggerFlash();
-            }}>
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
-                <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
-              </svg>
-              {unreadCount > 0 && <span className="notification-badge">{unreadCount}</span>}
-            </button>
+            <div style={{ position: 'relative' }}>
+              <button 
+                className="notification-button" 
+                onClick={() => setNotificationDropdownOpen(!notificationDropdownOpen)}
+                aria-label="Notifications"
+                aria-expanded={notificationDropdownOpen}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                  <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                </svg>
+                {unreadCount > 0 && <span className={`notification-badge ${flash ? 'flash' : ''}`}>{unreadCount}</span>}
+              </button>
+              <NotificationDropdown 
+                isOpen={notificationDropdownOpen}
+                onClose={() => setNotificationDropdownOpen(false)}
+                unreadCount={unreadCount}
+              />
+            </div>
           </div>
         </div>
         

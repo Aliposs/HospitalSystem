@@ -72,7 +72,7 @@ const adminAuthMiddleware = async (req, res, next) => {
 
     next();
   } catch (error) {
-    console.error('Admin auth middleware error:', error);
+    console.error('❌ Admin auth middleware error:', error.message);
     res.status(500).json({
       success: false,
       error: 'Internal Server Error',

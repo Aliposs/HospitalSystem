@@ -9,12 +9,12 @@ const UserStatsChart: React.FC<UserStatsChartProps> = ({ data }) => {
 
   const getColor = (role: string) => {
     const colors: Record<string, string> = {
-      'Doctor': '#3498db',
-      'Patient': '#2ecc71',
-      'Lab': '#e74c3c',
-      'Admin': '#f39c12'
+      'doctor': '#3498db',
+      'patient': '#2ecc71',
+      'lab': '#e74c3c',
+      'admin': '#f39c12'
     };
-    return colors[role] || '#95a5a6';
+    return colors[role.toLowerCase()] || '#95a5a6';
   };
 
   return (
@@ -22,7 +22,7 @@ const UserStatsChart: React.FC<UserStatsChartProps> = ({ data }) => {
       <div className="chart-bars">
         {Object.entries(data).map(([role, count]) => (
           <div key={role} className="chart-bar-item">
-            <div className="bar-label">{role}</div>
+            <div className="bar-label">{role.charAt(0).toUpperCase() + role.slice(1)}</div>
             <div className="bar-container">
               <div
                 className="bar"

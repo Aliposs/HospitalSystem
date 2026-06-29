@@ -29,6 +29,12 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
             </Link>
           </li>
           <li>
+            <Link to="/admin/nurses" className={`nav-link ${isActive('/admin/nurses')}`}>
+              <Icon name="nurses" />
+              <span className="label">Nurses</span>
+            </Link>
+          </li>
+          <li>
             <Link to="/admin/users" className={`nav-link ${isActive('/admin/users')}`}>
               <Icon name="users" />
               <span className="label">Users</span>
@@ -38,6 +44,12 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
             <Link to="/admin/specializations" className={`nav-link ${isActive('/admin/specializations')}`}>
               <Icon name="specializations" />
               <span className="label">Specializations</span>
+            </Link>
+          </li>
+          <li>
+            <Link to="/admin/test-types" className={`nav-link ${isActive('/admin/test-types')}`}>
+              <Icon name="lab" />
+              <span className="label">Test Types</span>
             </Link>
           </li>
           <li>

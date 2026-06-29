@@ -22,6 +22,14 @@ const DoctorCard: React.FC<DoctorCardProps> = ({ doctor, onBookAppointment }) =>
   // Use profile picture if available, otherwise use a default avatar with doctor's initials
   const avatarUrl = doctor.profilePicture || `https://ui-avatars.com/api/?name=${encodeURIComponent(doctor.name)}&background=4F46E5&color=fff&size=150`;
   
+  // Split availability days and assign colors
+  const availabilityDays = doctor.availability === 'Not Available' 
+    ? [] 
+    : doctor.availability.split(', ');
+  
+  const dayColors = ['#d4edda', '#d1ecf1', '#fff3cd', '#f8d7da', '#e2e3e5', '#d4edda', '#d1ecf1'];
+  const dayTextColors = ['#155724', '#0c5460', '#856404', '#721c24', '#383d41', '#155724', '#0c5460'];
+  
   return (
     <div className="doctor-card">
       <div className="doctor-card-header">
@@ -39,8 +47,26 @@ const DoctorCard: React.FC<DoctorCardProps> = ({ doctor, onBookAppointment }) =>
         {doctor.rating}
         </p>
         <p>
-          <strong>Availability:</strong> <span className={`badge badge-${doctor.availability === 'Available' ? 'success' : 'warning'}`}>{doctor.availability}</span>
-          </p>
+          <strong>Availability:</strong>
+        </p>
+        <div className="availability-days">
+          {availabilityDays.length > 0 ? (
+            availabilityDays.map((day, index) => (
+              <span 
+                key={index}
+                className="day-badge"
+                style={{
+                  backgroundColor: dayColors[index % dayColors.length],
+                  color: dayTextColors[index % dayTextColors.length]
+                }}
+              >
+                {day}
+              </span>
+            ))
+          ) : (
+            <span className="badge badge-warning">Not Available</span>
+          )}
+        </div>
       </div>
       <div className="doctor-card-footer">
         <Link to={`/patient/doctor/${doctor.id}`} className="btn btn-outline">View Profile</Link>

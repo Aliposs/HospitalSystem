@@ -1,6 +1,39 @@
 import "../styles/about.css";
+import { useEffect, useState } from "react";
 
 const About = () => {
+  const [stats, setStats] = useState({
+    doctors: 0,
+    patients: 0,
+    nurses: 0,
+  });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const response = await fetch("http://localhost:5000/api/doctor/stats");
+        const data = await response.json();
+        setStats({
+          doctors: data.doctors || 0,
+          patients: data.patients || 0,
+          nurses: data.nurses || 0,
+        });
+      } catch (error) {
+        console.error("Failed to fetch stats:", error);
+        setStats({
+          doctors: 0,
+          patients: 0,
+          nurses: 0,
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchStats();
+  }, []);
+
   return (
     <section id="about" className="about">
       <div className="about-container">
@@ -14,16 +47,12 @@ const About = () => {
         </div>
         <div className="stats-container">
           <div className="stat-item">
-            <h3>150+</h3>
+            <h3>{loading ? "..." : stats.doctors}</h3>
             <p>Expert Doctors</p>
           </div>
           <div className="stat-item">
-            <h3>10,000+</h3>
+            <h3>{loading ? "..." : stats.patients.toLocaleString()}</h3>
             <p>Happy Patients</p>
-          </div>
-          <div className="stat-item">
-            <h3>25+</h3>
-            <p>Specialties</p>
           </div>
         </div>
         <div className="feature-cards">

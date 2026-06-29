@@ -2,14 +2,17 @@ import React, { useEffect, useState } from 'react';
 import api from '../../../lib/api';
 import UserTable from './UserTable';
 import FilterBar from './FilterBar';
+import BulkSelectionToolbar from './BulkSelectionToolbar';
 import '../../../styles/adminUsers.css';
 
 interface User {
   id: string;
-  email: string;
+  email: string | null;
+  full_name: string;
   role: string;
   account_status: string;
   registration_date: string;
+  created_at: string;
 }
 
 interface Pagination {
@@ -34,6 +37,7 @@ const UserList: React.FC = () => {
     status: '',
     search: ''
   });
+  const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     fetchUsers();
@@ -74,6 +78,25 @@ const UserList: React.FC = () => {
     setPagination({ ...pagination, page: newPage });
   };
 
+  const handleSelectionChange = (userId: string, selected: boolean) => {
+    const newSelection = new Set(selectedUserIds);
+    if (selected) {
+      newSelection.add(userId);
+    } else {
+      newSelection.delete(userId);
+    }
+    setSelectedUserIds(newSelection);
+  };
+
+  const handleSelectAll = () => {
+    const allUserIds = new Set(users.map(user => user.id));
+    setSelectedUserIds(allUserIds);
+  };
+
+  const handleDeselectAll = () => {
+    setSelectedUserIds(new Set());
+  };
+
   return (
     <div className="user-list-page">
       <div className="page-header">
@@ -83,13 +106,36 @@ const UserList: React.FC = () => {
 
       <FilterBar onFilterChange={handleFilterChange} />
 
+      {selectedUserIds.size > 0 && (
+        <BulkSelectionToolbar
+          selectedCount={selectedUserIds.size}
+          totalCount={pagination.total}
+          onDeselectAll={handleDeselectAll}
+          onRefresh={fetchUsers}
+          selectedUserIds={selectedUserIds}
+        />
+      )}
+
+      {selectedUserIds.size > 0 && (
+        <div className="selection-info">
+          <span>{selectedUserIds.size} user{selectedUserIds.size !== 1 ? 's' : ''} selected</span>
+        </div>
+      )}
+
       {error && <div className="error-message">{error}</div>}
 
       {loading ? (
         <div className="loading-message">Loading users...</div>
       ) : (
         <>
-          <UserTable users={users} onRefresh={fetchUsers} />
+          <UserTable 
+            users={users} 
+            onRefresh={fetchUsers}
+            selectedUserIds={selectedUserIds}
+            onSelectionChange={handleSelectionChange}
+            onSelectAll={handleSelectAll}
+            onDeselectAll={handleDeselectAll}
+          />
 
           {/* Pagination */}
           <div className="pagination">

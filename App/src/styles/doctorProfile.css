@@ -308,6 +308,10 @@
   background-color: #27ae60;
 }
 
+.status-indicator.pending {
+  background-color: #f39c12;
+}
+
 .status-info h3 {
   margin: 0 0 10px 0;
   color: #2c3e50;
@@ -363,6 +367,63 @@
   font-size: 0.85rem;
   margin-top: 4px;
   display: block;
+}
+
+.availability-schedule {
+  margin-top: 10px;
+}
+
+.availability-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.availability-item {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 12px;
+  border: 1px solid #eee;
+  border-radius: 6px;
+  background-color: #f8f9fa;
+}
+
+.day-name {
+  font-weight: 600;
+  color: #2c3e50;
+  min-width: 100px;
+}
+
+.time-range {
+  color: #7f8c8d;
+  flex: 1;
+}
+
+.availability-status {
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.availability-status.available {
+  background-color: #d4edda;
+  color: #155724;
+}
+
+.availability-status.unavailable {
+  background-color: #f8d7da;
+  color: #721c24;
+}
+
+.no-availability {
+  color: #7f8c8d;
+  font-style: italic;
+  padding: 15px;
+  text-align: center;
+  background-color: #f8f9fa;
+  border-radius: 6px;
 }
 
 @media (max-width: 768px) {

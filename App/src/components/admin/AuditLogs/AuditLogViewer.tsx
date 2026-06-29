@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import api from '../../../lib/api';
 import AuditLogTable from "./AuditLogTable";
+import PaginationControls from "./PaginationControls";
 import "../../../styles/adminAuditLogs.css";
 
 interface AuditLog {
@@ -24,9 +25,10 @@ interface Pagination {
 
 const AuditLogViewer: React.FC = () => {
   const [logs, setLogs] = useState<AuditLog[]>([]);
+  const [displayedLogs, setDisplayedLogs] = useState<AuditLog[]>([]);
   const [pagination, setPagination] = useState<Pagination>({
     page: 1,
-    limit: 50,
+    limit: 10,
     total: 0,
     pages: 0,
   });
@@ -43,6 +45,18 @@ const AuditLogViewer: React.FC = () => {
   useEffect(() => {
     fetchAuditLogs();
   }, [filters, pagination.page]);
+
+  useEffect(() => {
+    // Auto-clear cache every 10 days
+    const lastClearTime = localStorage.getItem("auditLogsLastClear");
+    const now = Date.now();
+    const TEN_DAYS_MS = 10 * 24 * 60 * 60 * 1000;
+
+    if (!lastClearTime || now - parseInt(lastClearTime) > TEN_DAYS_MS) {
+      localStorage.removeItem("auditLogsCache");
+      localStorage.setItem("auditLogsLastClear", now.toString());
+    }
+  }, []);
 
   const fetchAuditLogs = async () => {
     try {
@@ -61,6 +75,7 @@ const AuditLogViewer: React.FC = () => {
       // Backend returns { success: true, data: { logs: [...], pagination: {...} } }
       const data = response.data.data || response.data;
       setLogs(data.logs || []);
+      setDisplayedLogs(data.logs || []);
       setPagination(data.pagination || pagination);
       setError(null);
     } catch (err: any) {
@@ -78,6 +93,77 @@ const AuditLogViewer: React.FC = () => {
 
   const handlePageChange = (newPage: number) => {
     setPagination({ ...pagination, page: newPage });
+    // Reset scroll position
+    const tableContainer = document.querySelector(".audit-log-page");
+    if (tableContainer) {
+      tableContainer.scrollTop = 0;
+    }
+  };
+
+  const handleClearLogs = () => {
+    if (window.confirm("Are you sure you want to clear the displayed logs? This will only clear the frontend display, not the database.")) {
+      setDisplayedLogs([]);
+      setLogs([]);
+      setPagination({
+        page: 1,
+        limit: 10,
+        total: 0,
+        pages: 0,
+      });
+    }
+  };
+
+  const handleExportCSV = () => {
+    if (displayedLogs.length === 0) {
+      alert("No logs to export");
+      return;
+    }
+
+    const headers = [
+      "ID",
+      "Admin Name",
+      "Action Type",
+      "Resource Type",
+      "Resource ID",
+      "Status",
+      "Date & Time",
+      "Changes",
+    ];
+
+    const rows = displayedLogs.map((log) => [
+      log.id,
+      log.admin_name,
+      log.action_type,
+      log.resource_type,
+      log.resource_id,
+      log.status,
+      log.created_at,
+      JSON.stringify(log.changes),
+    ]);
+
+    const csvContent = [
+      headers.join(","),
+      ...rows.map((row) =>
+        row
+          .map((cell) => {
+            const cellStr = String(cell);
+            return cellStr.includes(",") || cellStr.includes('"')
+              ? `"${cellStr.replace(/"/g, '""')}"`
+              : cellStr;
+          })
+          .join(",")
+      ),
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", `audit-logs-${new Date().toISOString().split("T")[0]}.csv`);
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   return (
@@ -97,7 +183,7 @@ const AuditLogViewer: React.FC = () => {
               handleFilterChange({ ...filters, action_type: e.target.value })
             }
           >
-            <option value="\">All Actions</option>
+            <option value="">All Actions</option>
             <option value="CREATE">Create</option>
             <option value="UPDATE">Update</option>
             <option value="DELETE">Delete</option>
@@ -115,7 +201,7 @@ const AuditLogViewer: React.FC = () => {
               handleFilterChange({ ...filters, resource_type: e.target.value })
             }
           >
-            <option value="\">All Resources</option>
+            <option value="">All Resources</option>
             <option value="User">User</option>
             <option value="Doctor">Doctor</option>
             <option value="Specialization">Specialization</option>
@@ -153,29 +239,31 @@ const AuditLogViewer: React.FC = () => {
         <div className="loading-message">Loading audit logs...</div>
       ) : (
         <>
-          <AuditLogTable logs={logs} />
-
-          {/* Pagination */}
-          <div className="pagination">
-            <button
-              disabled={pagination.page === 1}
-              onClick={() => handlePageChange(pagination.page - 1)}
-            >
-              ← Previous
+          <div className="audit-actions">
+            <button className="btn-export" onClick={handleExportCSV}>
+              📥 Export as CSV
             </button>
-
-            <span className="page-info">
-              Page {pagination.page} of {pagination.pages} ({pagination.total}{" "}
-              total)
-            </span>
-
-            <button
-              disabled={pagination.page === pagination.pages}
-              onClick={() => handlePageChange(pagination.page + 1)}
-            >
-              Next →
+            <button className="btn-clear" onClick={handleClearLogs}>
+              🗑️ Clear Display
             </button>
           </div>
+
+          {displayedLogs.length === 0 ? (
+            <div className="no-logs-message">No audit logs found</div>
+          ) : (
+            <>
+              <AuditLogTable logs={displayedLogs} />
+
+              {/* Pagination */}
+              <PaginationControls
+                currentPage={pagination.page}
+                totalPages={pagination.pages}
+                totalRecords={pagination.total}
+                onPageChange={handlePageChange}
+                isLoading={loading}
+              />
+            </>
+          )}
         </>
       )}
     </div>

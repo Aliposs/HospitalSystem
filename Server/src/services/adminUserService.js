@@ -23,65 +23,152 @@ const getAllUsers = async (filters = {}, pagination = {}) => {
       sortOrder = 'desc'
     } = filters;
 
-    const {
-      page = 1,
-      limit = 20
-    } = pagination;
+    const { page = 1, limit = 20 } = pagination;
 
-    let query = supabase
-      .from('user_roles')
-      .select('*', { count: 'exact' })
-      .eq('is_deleted', false);
+    // Normalize filters to lowercase
+    const normalizedRole = role ? role.toLowerCase() : null;
+    const normalizedStatus = status ? status.toLowerCase().replace(' ', '_') : null;
+    // pending approval → pending, active → active, inactive → inactive
 
-    // Apply filters
-    if (role) {
-      query = query.eq('role', role);
+    let users = [];
+    let total = 0;
+
+    const shouldIncludeDoctors = !normalizedRole || normalizedRole === 'doctor';
+    const shouldIncludePatients = !normalizedRole || normalizedRole === 'patient';
+    const shouldIncludeLabs = !normalizedRole || normalizedRole === 'lab';
+
+    if (shouldIncludeDoctors) {
+      let q = supabase
+        .from('doctors')
+        .select('user_id, full_name, phone_number, specialty, is_approved_by_admin, created_at, license_file_path', { count: 'exact' });
+
+      if (normalizedStatus === 'pending' || normalizedStatus === 'pending_approval') q = q.eq('is_approved_by_admin', false);
+      if (normalizedStatus === 'active')   q = q.eq('is_approved_by_admin', true);
+      if (search) q = q.ilike('full_name', `%${search}%`);
+
+      q = q.order('created_at', { ascending: sortOrder === 'asc' });
+
+      const { data: doctors, error: docErr, count: docCount } = await q;
+      if (docErr) throw docErr;
+
+      total += docCount || 0;
+      users = users.concat(
+        (doctors || []).map(d => ({
+          id: d.user_id,
+          user_id: d.user_id,
+          full_name: d.full_name,
+          email: null, // fetched below
+          phone_number: d.phone_number,
+          specialty: d.specialty,
+          role: 'doctor',
+          account_status: d.is_approved_by_admin ? 'active' : 'pending',
+          created_at: d.created_at,
+          registration_date: d.created_at,
+          license_file_path: d.license_file_path || null,
+        }))
+      );
     }
 
-    if (status) {
-      query = query.eq('account_status', status);
+    if (shouldIncludePatients && normalizedStatus !== 'pending' && normalizedStatus !== 'pending_approval') {
+      let q = supabase
+        .from('patients')
+        .select('user_id, full_name, phone_number, email, created_at', { count: 'exact' });
+
+      if (search) q = q.or(`full_name.ilike.%${search}%,email.ilike.%${search}%`);
+      q = q.order('created_at', { ascending: sortOrder === 'asc' });
+
+      const { data: patients, error: patErr, count: patCount } = await q;
+      if (patErr) throw patErr;
+
+      total += patCount || 0;
+      users = users.concat(
+        (patients || []).map(p => ({
+          id: p.user_id,
+          user_id: p.user_id,
+          full_name: p.full_name,
+          email: p.email || null,
+          phone_number: p.phone_number,
+          role: 'patient',
+          account_status: 'active',
+          created_at: p.created_at,
+          registration_date: p.created_at,
+        }))
+      );
     }
 
-    // Apply sorting
-    query = query.order(sortBy, { ascending: sortOrder === 'asc' });
+    if (shouldIncludeLabs && normalizedStatus !== 'pending' && normalizedStatus !== 'pending_approval') {
+      let q = supabase
+        .from('labs')
+        .select('user_id, name, phone_number, email, is_approved, created_at', { count: 'exact' });
+
+      if (search) q = q.or(`name.ilike.%${search}%,email.ilike.%${search}%`);
+      q = q.order('created_at', { ascending: sortOrder === 'asc' });
+
+      const { data: labs, error: labErr, count: labCount } = await q;
+      if (labErr) throw labErr;
+
+      total += labCount || 0;
+      users = users.concat(
+        (labs || []).map(l => ({
+          id: l.user_id,
+          user_id: l.user_id,
+          full_name: l.name,
+          email: l.email || null,
+          phone_number: l.phone_number,
+          role: 'lab',
+          account_status: l.is_approved ? 'active' : 'pending',
+          created_at: l.created_at,
+          registration_date: l.created_at,
+        }))
+      );
+    }
+
+    // Fetch emails from auth.users for doctors (using admin API)
+    const doctorUsers = users.filter(u => u.role === 'doctor' && !u.email);
+    if (doctorUsers.length > 0) {
+      try {
+        const { data: authList } = await supabase.auth.admin.listUsers({ perPage: 1000 });
+        const authMap = {};
+        (authList?.users || []).forEach(u => { authMap[u.id] = u.email; });
+        users = users.map(u => ({
+          ...u,
+          email: u.email || authMap[u.id] || null,
+          registration_date: u.registration_date || authMap[u.id] ? u.registration_date : null
+        }));
+      } catch {
+        // silently fail — emails stay null
+      }
+    }
+
+    // Apply email/name search filter for doctors (post-fetch since email comes from auth)
+    if (search && shouldIncludeDoctors) {
+      const s = search.toLowerCase();
+      users = users.filter(u =>
+        u.role !== 'doctor' ||
+        u.full_name?.toLowerCase().includes(s) ||
+        u.email?.toLowerCase().includes(s)
+      );
+      total = users.length;
+    }
+
+    // Sort merged results by created_at
+    users.sort((a, b) => {
+      const da = new Date(a.created_at || 0).getTime();
+      const db = new Date(b.created_at || 0).getTime();
+      return sortOrder === 'asc' ? da - db : db - da;
+    });
 
     // Apply pagination
     const offset = (page - 1) * limit;
-    query = query.range(offset, offset + limit - 1);
-
-    const { data, error, count } = await query;
-
-    if (error) throw error;
-
-    // Fetch additional user info from auth.users
-    const userIds = data.map(u => u.user_id);
-    const { data: authUsers, error: authError } = await supabase
-      .from('auth.users')
-      .select('id, email, created_at')
-      .in('id', userIds);
-
-    if (authError) throw authError;
-
-    // Merge data
-    const users = data.map(userRole => {
-      const authUser = authUsers.find(u => u.id === userRole.user_id);
-      return {
-        id: userRole.user_id,
-        email: authUser?.email,
-        role: userRole.role,
-        account_status: userRole.account_status,
-        registration_date: authUser?.created_at,
-        created_at: userRole.created_at
-      };
-    });
+    const paginated = users.slice(offset, offset + limit);
 
     return {
-      users,
+      users: paginated,
       pagination: {
         page,
         limit,
-        total: count,
-        pages: Math.ceil(count / limit)
+        total,
+        pages: Math.ceil(total / limit) || 1
       }
     };
   } catch (error) {
@@ -95,89 +182,98 @@ const getAllUsers = async (filters = {}, pagination = {}) => {
  */
 const getUserById = async (userId) => {
   try {
-    // Get user role info
-    const { data: userRole, error: roleError } = await supabase
-      .from('user_roles')
+    // Try to get user from doctors table first
+    const { data: doctor, error: doctorError } = await supabase
+      .from('doctors')
       .select('*')
       .eq('user_id', userId)
       .single();
 
-    if (roleError) throw roleError;
+    if (!doctorError && doctor) {
+      // User is a doctor
+      let additionalInfo = {
+        full_name: doctor.full_name,
+        phone_number: doctor.phone_number,
+        specialty: doctor.specialty,
+        is_approved: doctor.is_approved,
+        is_approved_by_admin: doctor.is_approved_by_admin
+      };
 
-    // Get auth user info
-    const { data: authUser, error: authError } = await supabase
-      .from('auth.users')
-      .select('id, email, created_at')
-      .eq('id', userId)
-      .single();
-
-    if (authError) throw authError;
-
-    // Get additional info based on role
-    let additionalInfo = {};
-
-    if (userRole.role === 'Doctor') {
-      const { data: doctor, error: doctorError } = await supabase
-        .from('doctors')
-        .select('*')
-        .eq('user_id', userId)
-        .single();
-
-      if (!doctorError && doctor) {
-        additionalInfo = {
-          full_name: doctor.full_name,
-          phone_number: doctor.phone_number,
-          specialty: doctor.specialty,
-          is_approved: doctor.is_approved,
-          is_approved_by_admin: doctor.is_approved_by_admin
-        };
-
-        // Get specialization
-        const { data: spec, error: specError } = await supabase
-          .from('doctor_specializations')
-          .select('specialization_id, medical_specializations(id, name)')
-          .eq('doctor_id', userId)
-          .single();
-
-        if (!specError && spec) {
-          additionalInfo.specialization = spec.medical_specializations;
-        }
-
-        // Get schedule
-        const { data: schedule, error: scheduleError } = await supabase
-          .from('doctor_availability')
-          .select('*')
-          .eq('doctor_id', userId);
-
-        if (!scheduleError && schedule) {
-          additionalInfo.schedule = schedule;
-        }
+      // Get email from auth.users
+      let email = null;
+      try {
+        const { data: authUser } = await supabase.auth.admin.getUserById(userId);
+        email = authUser?.user?.email;
+      } catch (err) {
+        console.error('Error fetching email from auth:', err);
       }
-    } else if (userRole.role === 'Patient') {
-      const { data: patient, error: patientError } = await supabase
-        .from('patients')
-        .select('*')
-        .eq('user_id', userId)
-        .single();
 
-      if (!patientError && patient) {
-        additionalInfo = {
-          full_name: patient.full_name,
-          phone_number: patient.phone_number,
-          age: patient.age,
-          blood_type: patient.blood_type
-        };
+      // Get specialization
+      const { data: specs, error: specError } = await supabase
+        .from('doctor_specializations')
+        .select('specialization_id, medical_specializations(id, name)')
+        .eq('doctor_id', userId);
+
+      if (!specError && specs && specs.length > 0) {
+        additionalInfo.specialization = specs[0].medical_specializations;
       }
+
+      // Get schedule
+      const { data: schedule, error: scheduleError } = await supabase
+        .from('doctor_availability')
+        .select('*')
+        .eq('doctor_id', userId);
+
+      if (!scheduleError && schedule) {
+        additionalInfo.schedule = schedule;
+      }
+
+      const result = {
+        id: doctor.user_id,
+        email: email,
+        role: 'Doctor',
+        account_status: 'active',
+        registration_date: doctor.created_at,
+        ...additionalInfo
+      };
+
+      console.log('getUserById returning doctor:', result);
+      return result;
     }
 
-    return {
-      id: userRole.user_id,
-      email: authUser.email,
-      role: userRole.role,
-      account_status: userRole.account_status,
-      registration_date: authUser.created_at,
-      ...additionalInfo
-    };
+    // Try to get user from patients table
+    const { data: patient, error: patientError } = await supabase
+      .from('patients')
+      .select('*')
+      .eq('user_id', userId)
+      .single();
+
+    if (!patientError && patient) {
+      // User is a patient
+      // Get email from auth.users
+      let email = null;
+      try {
+        const { data: authUser } = await supabase.auth.admin.getUserById(userId);
+        email = authUser?.user?.email;
+      } catch (err) {
+        console.error('Error fetching email from auth:', err);
+      }
+
+      return {
+        id: patient.user_id,
+        email: email,
+        role: 'Patient',
+        account_status: 'active',
+        registration_date: patient.created_at,
+        full_name: patient.full_name,
+        phone_number: patient.phone_number,
+        age: patient.age,
+        blood_type: patient.blood_type
+      };
+    }
+
+    // User not found in either table
+    throw new Error(`User with ID ${userId} not found`);
   } catch (error) {
     console.error('Error getting user by ID:', error);
     throw error;
@@ -229,23 +325,14 @@ const updateUserStatus = async (userId, newStatus, adminId) => {
  */
 const approveDoctorRegistration = async (doctorId, specializationId, adminId) => {
   try {
-    // Validate specialization exists
-    const { data: spec, error: specError } = await supabase
-      .from('medical_specializations')
-      .select('id')
-      .eq('id', specializationId)
-      .single();
-
-    if (specError || !spec) {
-      throw new Error('Specialization not found');
-    }
-
     // Update doctor approval status
     const { data: doctor, error: doctorError } = await supabase
       .from('doctors')
       .update({
         is_approved_by_admin: true,
-        admin_approval_date: new Date().toISOString()
+        is_approved: true,
+        admin_approval_date: new Date().toISOString(),
+        approved_by: adminId || null
       })
       .eq('user_id', doctorId)
       .select()
@@ -253,26 +340,16 @@ const approveDoctorRegistration = async (doctorId, specializationId, adminId) =>
 
     if (doctorError) throw doctorError;
 
-    // Assign specialization
-    const { error: specAssignError } = await supabase
-      .from('doctor_specializations')
-      .insert({
-        doctor_id: doctorId,
-        specialization_id: specializationId,
-        assigned_by: adminId
-      });
-
-    if (specAssignError) throw specAssignError;
-
-    // Update user role status to Active
-    const { data: userRole, error: roleError } = await supabase
-      .from('user_roles')
-      .update({ account_status: 'Active' })
-      .eq('user_id', doctorId)
-      .select()
-      .single();
-
-    if (roleError) throw roleError;
+    // Assign specialization only if provided
+    if (specializationId) {
+      await supabase
+        .from('doctor_specializations')
+        .insert({
+          doctor_id: doctorId,
+          specialization_id: specializationId,
+          assigned_by: adminId
+        });
+    }
 
     // Log audit action
     await supabase
@@ -282,15 +359,11 @@ const approveDoctorRegistration = async (doctorId, specializationId, adminId) =>
         action_type: 'APPROVE',
         resource_type: 'Doctor',
         resource_id: doctorId,
-        changes: {
-          is_approved_by_admin: true,
-          specialization_id: specializationId,
-          account_status: 'Active'
-        },
+        changes: { is_approved_by_admin: true },
         status: 'Success'
       });
 
-    return userRole;
+    return doctor;
   } catch (error) {
     console.error('Error approving doctor:', error);
     throw error;

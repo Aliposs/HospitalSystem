@@ -6,7 +6,7 @@ import '../styles/otpVerification.css';
 const OtpVerification = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { email, userType } = location.state || { email: '', userType: 'doctor' };
+  const { email, userType, theme } = location.state || { email: '', userType: 'doctor', theme: 'green' };
   
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [timeLeft, setTimeLeft] = useState(180); // 3 minutes in seconds
@@ -111,7 +111,7 @@ const OtpVerification = () => {
       if (!res.ok) throw new Error(result.error || 'Verification failed');
 
       // Navigate to login page after successful verification
-      navigate('/login', { state: { message: result.message } });
+      navigate('/login', { state: { message: result.message, theme: theme || 'green' } });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Verification failed.');
     } finally {

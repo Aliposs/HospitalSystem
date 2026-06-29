@@ -12,6 +12,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ conversationId, conversationDat
   const { user } = useAuthStore();
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState<any[]>([]);
+  const [isCleared, setIsCleared] = useState(false);
+  const isClearedRef = useRef(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [selectedAttachment, setSelectedAttachment] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -20,6 +22,11 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ conversationId, conversationDat
   const [isTimeExpired, setIsTimeExpired] = useState<boolean>(false);
 
   useEffect(() => {
+    // Reset timer state when conversation changes
+    setIsTimeExpired(false);
+    setTimeRemaining(600);
+    if (timerRef.current) clearInterval(timerRef.current);
+
     // Check if there's an active conversation session
     const sessionStartTime = localStorage.getItem('patientSessionStart');
     if (sessionStartTime) {
@@ -27,7 +34,9 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ conversationId, conversationDat
       const remaining = Math.max(0, 600 - elapsed);
       
       if (remaining === 0) {
-        setIsTimeExpired(true);
+        // Timer expired, clear it and allow new session
+        localStorage.removeItem('patientSessionStart');
+        setIsTimeExpired(false);
       } else {
         setTimeRemaining(remaining);
         startTimer();
@@ -37,10 +46,14 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ conversationId, conversationDat
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, []);
+  }, [conversationId]);
 
   useEffect(() => {
     if (!conversationId) return;
+
+    // Reset cleared state when switching conversations
+    setIsCleared(false);
+    isClearedRef.current = false;
 
     const fetchMessages = async () => {
       try {
@@ -53,7 +66,10 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ conversationId, conversationDat
     };
 
     fetchMessages();
-    const interval = setInterval(fetchMessages, 10000);
+    const interval = setInterval(() => {
+      // Use ref to avoid stale closure — stops polling after clear
+      if (!isClearedRef.current) fetchMessages();
+    }, 10000);
     return () => clearInterval(interval);
   }, [conversationId]);
 
@@ -112,9 +128,11 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ conversationId, conversationDat
       setTimeRemaining(remaining);
 
       if (remaining === 0) {
-        setIsTimeExpired(true);
-        alert('10-minute conversation time has ended');
+        // Timer expired - reset for next session
+        alert('10-minute conversation time has ended. You can start a new conversation.');
         localStorage.removeItem('patientSessionStart');
+        setIsTimeExpired(false);
+        setTimeRemaining(600);
         if (timerRef.current) clearInterval(timerRef.current);
       }
     }, 1000);
@@ -169,6 +187,32 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ conversationId, conversationDat
           <div className="timer-display">
             {Math.floor(timeRemaining / 60)}:{String(timeRemaining % 60).padStart(2, '0')}
           </div>
+          <button
+            onClick={() => { setMessages([]); setIsCleared(true); isClearedRef.current = true; }}
+            title="Clear messages (local only)"
+            style={{
+              background: 'none',
+              border: '1px solid #ddd',
+              borderRadius: '6px',
+              padding: '4px 10px',
+              cursor: 'pointer',
+              color: '#888',
+              fontSize: '0.78rem',
+              marginLeft: '8px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+            }}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
+              fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="3 6 5 6 21 6"></polyline>
+              <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path>
+              <path d="M10 11v6"></path><path d="M14 11v6"></path>
+              <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path>
+            </svg>
+            Clear
+          </button>
         </div>
       </div>
 

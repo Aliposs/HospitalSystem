@@ -34,6 +34,11 @@ const Messages = () => {
 
     fetchChats();
 
+    // Reset timer state on component mount
+    setIsTimeExpired(false);
+    setTimeRemaining(600);
+    if (timerRef.current) clearInterval(timerRef.current);
+
     // Check if there's an active conversation session
     const sessionStartTime = localStorage.getItem('doctorSessionStart');
     if (sessionStartTime) {
@@ -41,7 +46,9 @@ const Messages = () => {
       const remaining = Math.max(0, 600 - elapsed);
       
       if (remaining === 0) {
-        setIsTimeExpired(true);
+        // Timer expired, clear it and allow new session
+        localStorage.removeItem('doctorSessionStart');
+        setIsTimeExpired(false);
       } else {
         setTimeRemaining(remaining);
         startTimer();
@@ -55,6 +62,11 @@ const Messages = () => {
 
   useEffect(() => {
     if (!selectedChat) return;
+
+    // Reset timer when switching conversations
+    setIsTimeExpired(false);
+    setTimeRemaining(600);
+    if (timerRef.current) clearInterval(timerRef.current);
 
     const fetchMessages = async () => {
       try {
@@ -136,9 +148,11 @@ const Messages = () => {
       setTimeRemaining(remaining);
 
       if (remaining === 0) {
-        setIsTimeExpired(true);
-        alert('10-minute conversation time has ended');
+        // Timer expired - reset for next session
+        alert('10-minute conversation time has ended. You can start a new conversation.');
         localStorage.removeItem('doctorSessionStart');
+        setIsTimeExpired(false);
+        setTimeRemaining(600);
         if (timerRef.current) clearInterval(timerRef.current);
       }
     }, 1000);

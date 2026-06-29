@@ -108,17 +108,9 @@ const updateUserStatus = async (req, res) => {
 const approveDoctorRegistration = async (req, res) => {
   try {
     const { userId } = req.params;
-    const { specialization_id } = req.body;
+    const specialization_id = req.body?.specialization_id || null;
 
-    if (!specialization_id) {
-      return res.status(400).json({
-        success: false,
-        error: 'Validation Error',
-        details: [{ field: 'specialization_id', message: 'Specialization is required for doctors' }]
-      });
-    }
-
-    const user = await adminUserService.approveDoctorRegistration(userId, specialization_id, req.user.id);
+    const user = await adminUserService.approveDoctorRegistration(userId, specialization_id, req.user?.id);
 
     res.status(200).json({
       success: true,

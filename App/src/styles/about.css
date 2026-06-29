@@ -36,6 +36,7 @@
   padding: 30px;
   border-radius: 8px;
   color: white;
+  flex-wrap: wrap;
 }
 
 .stat-item {

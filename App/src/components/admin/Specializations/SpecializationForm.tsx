@@ -54,7 +54,7 @@ const SpecializationForm: React.FC<SpecializationFormProps> = ({
     }
     try {
       setLoading(true);
-      
+
       if (specialization) {
         // Update existing
         await api.put(`/admin/specializations/${specialization.id}`, formData);
@@ -62,7 +62,7 @@ const SpecializationForm: React.FC<SpecializationFormProps> = ({
         // Create new
         await api.post('/admin/specializations', formData);
       }
-      
+
       onClose();
     } catch (err: any) {
       setError(err.response?.data?.error || err.message || "An error occurred");
@@ -123,11 +123,19 @@ const SpecializationForm: React.FC<SpecializationFormProps> = ({
               Cancel
             </button>
             <button type="submit" className="btn-primary" disabled={loading}>
-              {loading
-                ? "⏳ Saving..."
-                : specialization
-                  ? "💾 Update"
-                  : "➕ Create"}
+              {loading ? (
+                <>
+                  <i className="fa-solid fa-floppy-disk"></i> Saving...
+                </>
+              ) : specialization ? (
+                <>
+                  <i className="fa-solid fa-pen-to-square"></i> Update
+                </>
+              ) : (
+                <>
+                  <i className="fa-solid fa-floppy-disk"></i> Create
+                </>
+              )}
             </button>
           </div>
         </form>

@@ -80,7 +80,7 @@ const SpecializationList: React.FC = () => {
       <div className="page-header">
         <h2>Medical Specializations</h2>
         <button className="btn-primary" onClick={handleAddNew}>
-          ➕ Add Specialization
+          <i className="fa-solid fa-circle-plus"></i> Add Specialization
         </button>
       </div>
 

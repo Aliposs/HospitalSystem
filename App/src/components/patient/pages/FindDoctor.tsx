@@ -13,10 +13,11 @@ const FindDoctor: React.FC = () => {
     show: false,
     doctorId: '',
     doctorName: '',
-    selectedDate: '',
+    selectedDay: '',
     selectedTime: '',
     bookingSuccess: false,
-    appointmentType: ''
+    appointmentType: '',
+    availabilitySlots: [] as any[]
   });
   const [bookingLoading, setBookingLoading] = useState(false);
 
@@ -58,21 +59,30 @@ const FindDoctor: React.FC = () => {
     setFilters({ name: '', specialization: '', rating: '' });
   };
 
-  const handleBookAppointment = (doctorId: string, doctorName: string) => {
-    setBookingModal({
-      show: true,
-      doctorId,
-      doctorName,
-      selectedDate: '',
-      selectedTime: '',
-      bookingSuccess: false,
-      appointmentType: ''
-    });
+  const handleBookAppointment = async (doctorId: string, doctorName: string) => {
+    try {
+      // Fetch doctor's availability
+      const res = await api.get(`/doctor/${doctorId}/availability`);
+      console.log('Availability data received:', res.data);
+      setBookingModal({
+        show: true,
+        doctorId,
+        doctorName,
+        selectedDay: '',
+        selectedTime: '',
+        bookingSuccess: false,
+        appointmentType: '',
+        availabilitySlots: res.data || []
+      });
+    } catch (err) {
+      console.error('Failed to fetch availability:', err);
+      alert('Failed to load doctor availability');
+    }
   };
 
   const handleBookingSubmit = async () => {
-    if (!bookingModal.selectedDate || !bookingModal.selectedTime) {
-      alert('Please select both date and time');
+    if (!bookingModal.selectedDay || !bookingModal.selectedTime) {
+      alert('Please select both day and time');
       return;
     }
     if (!bookingModal.appointmentType) {
@@ -82,7 +92,55 @@ const FindDoctor: React.FC = () => {
 
     try {
       setBookingLoading(true);
-      const appointmentDateTime = `${bookingModal.selectedDate}T${bookingModal.selectedTime}:00`;
+      
+      // Find the selected slot to get the actual date
+      const selectedSlot = bookingModal.availabilitySlots.find(
+        slot => String(slot.day_of_week) === bookingModal.selectedDay
+      );
+
+      if (!selectedSlot) {
+        alert('Invalid day selected');
+        return;
+      }
+
+      // Calculate the actual date for this day of week
+      const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      const targetDayIndex = parseInt(bookingModal.selectedDay);
+      const today = new Date();
+      const currentDayIndex = today.getDay();
+      
+      let daysToAdd = targetDayIndex - currentDayIndex;
+      
+      // If same day, check if time is in the future
+      if (daysToAdd === 0) {
+        const [hours, minutes] = bookingModal.selectedTime.split(':').map(Number);
+        const appointmentHour = new Date();
+        appointmentHour.setHours(hours, minutes, 0, 0);
+        
+        // If time has passed, schedule for next week
+        if (appointmentHour <= today) {
+          daysToAdd = 7;
+        }
+      } else if (daysToAdd < 0) {
+        // If day hasn't come yet this week, move to next occurrence
+        daysToAdd += 7;
+      }
+      
+      const appointmentDate = new Date(today);
+      appointmentDate.setDate(appointmentDate.getDate() + daysToAdd);
+      
+      const appointmentDateTime = `${appointmentDate.toISOString().split('T')[0]}T${bookingModal.selectedTime}:00`;
+      
+      console.log('📅 Booking Details:', {
+        today: today.toISOString(),
+        selectedDay: bookingModal.selectedDay,
+        targetDayIndex,
+        currentDayIndex,
+        daysToAdd,
+        appointmentDate: appointmentDate.toISOString(),
+        appointmentDateTime,
+        selectedTime: bookingModal.selectedTime
+      });
       
       await api.post('/patient/appointments', {
         doctor_id: bookingModal.doctorId,
@@ -94,10 +152,11 @@ const FindDoctor: React.FC = () => {
         show: false,
         doctorId: '',
         doctorName: '',
-        selectedDate: '',
+        selectedDay: '',
         selectedTime: '',
         bookingSuccess: true,
-        appointmentType: ''
+        appointmentType: '',
+        availabilitySlots: []
       });
     } catch (err: any) {
       console.error('Failed to book appointment:', err);
@@ -257,7 +316,7 @@ const FindDoctor: React.FC = () => {
                   The doctor will review your request and confirm or update the status. You can track it in <strong>My Appointments</strong>.
                 </p>
                 <button
-                  onClick={() => setBookingModal({ show: false, doctorId: '', doctorName: '', selectedDate: '', selectedTime: '', bookingSuccess: false, appointmentType: '' })}
+                  onClick={() => setBookingModal({ show: false, doctorId: '', doctorName: '', selectedDay: '', selectedTime: '', bookingSuccess: false, appointmentType: '', availabilitySlots: [] })}
                   className="btn btn-primary"
                   style={{ width: '100%' }}
                 >
@@ -283,16 +342,23 @@ const FindDoctor: React.FC = () => {
                 </div>
 
                 <div className="form-group">
-                  <label htmlFor="appointmentDate">Select Date</label>
-                  <input
-                    type="date"
-                    id="appointmentDate"
-                    value={bookingModal.selectedDate}
-                    onChange={(e) => setBookingModal({ ...bookingModal, selectedDate: e.target.value })}
-                    min={getMinDate()}
-                    max={getMaxDate()}
-                  />
-                  <small style={{ color: '#999' }}>Available from tomorrow up to 30 days ahead</small>
+                  <label htmlFor="appointmentDay">Select Day</label>
+                  <select
+                    id="appointmentDay"
+                    value={bookingModal.selectedDay}
+                    onChange={(e) => setBookingModal({ ...bookingModal, selectedDay: e.target.value, selectedTime: '' })}
+                  >
+                    <option value="">Choose a day</option>
+                    {bookingModal.availabilitySlots.map((slot, index) => {
+                      const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+                      const dayName = dayNames[parseInt(slot.day_of_week)];
+                      return (
+                        <option key={index} value={slot.day_of_week}>
+                          {dayName}
+                        </option>
+                      );
+                    })}
+                  </select>
                 </div>
 
                 <div className="form-group">
@@ -301,25 +367,57 @@ const FindDoctor: React.FC = () => {
                     id="appointmentTime"
                     value={bookingModal.selectedTime}
                     onChange={(e) => setBookingModal({ ...bookingModal, selectedTime: e.target.value })}
+                    disabled={!bookingModal.selectedDay}
                   >
                     <option value="">Choose a time slot</option>
-                    {getAvailableTimes().map(time => {
-                      const [hours, minutes] = time.split(':');
-                      const hour = parseInt(hours);
-                      const ampm = hour >= 12 ? 'PM' : 'AM';
-                      const displayHour = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour;
-                      return (
-                        <option key={time} value={time}>
-                          {displayHour}:{minutes} {ampm}
-                        </option>
+                    {bookingModal.selectedDay && (() => {
+                      const selectedSlot = bookingModal.availabilitySlots.find(
+                        slot => String(slot.day_of_week) === bookingModal.selectedDay
                       );
-                    })}
+                      
+                      if (!selectedSlot) {
+                        console.log('No slot found for day:', bookingModal.selectedDay);
+                        console.log('Available slots:', bookingModal.availabilitySlots);
+                        return null;
+                      }
+
+                      // Remove seconds from time format (HH:MM:SS -> HH:MM)
+                      const startTimeStr = selectedSlot.start_time.substring(0, 5);
+                      const endTimeStr = selectedSlot.end_time.substring(0, 5);
+                      
+                      const [startHour, startMin] = startTimeStr.split(':').map(Number);
+                      const [endHour, endMin] = endTimeStr.split(':').map(Number);
+                      const timeSlots = [];
+
+                      let currentHour = startHour;
+                      let currentMin = startMin;
+
+                      while (currentHour < endHour || (currentHour === endHour && currentMin < endMin)) {
+                        const timeStr = `${String(currentHour).padStart(2, '0')}:${String(currentMin).padStart(2, '0')}`;
+                        const displayHour = currentHour > 12 ? currentHour - 12 : currentHour === 0 ? 12 : currentHour;
+                        const ampm = currentHour >= 12 ? 'PM' : 'AM';
+                        timeSlots.push(
+                          <option key={timeStr} value={timeStr}>
+                            {displayHour}:{String(currentMin).padStart(2, '0')} {ampm}
+                          </option>
+                        );
+
+                        currentMin += 30;
+                        if (currentMin >= 60) {
+                          currentMin = 0;
+                          currentHour += 1;
+                        }
+                      }
+
+                      console.log('Generated time slots:', timeSlots.length);
+                      return timeSlots;
+                    })()}
                   </select>
                 </div>
 
                 <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem' }}>
                   <button
-                    onClick={() => setBookingModal({ show: false, doctorId: '', doctorName: '', selectedDate: '', selectedTime: '', bookingSuccess: false, appointmentType: '' })}
+                    onClick={() => setBookingModal({ show: false, doctorId: '', doctorName: '', selectedDay: '', selectedTime: '', bookingSuccess: false, appointmentType: '', availabilitySlots: [] })}
                     className="btn btn-outline"
                     style={{ flex: 1, backgroundColor: 'red', color: 'white' }}
                     disabled={bookingLoading}

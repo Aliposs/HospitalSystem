@@ -55,7 +55,7 @@ const SpecializationTable: React.FC<SpecializationTableProps> = ({
         </thead>
         <tbody>
           {specializations.map((spec) => (
-            <tr key={spec.id}>
+            <tr key={spec.id} className={!spec.is_active ? 'inactive-row' : ''}>
               <td className="name-cell">{spec.name}</td>
               <td className="description-cell">{spec.description || "-"}</td>
               <td className="doctor-count">
@@ -74,7 +74,7 @@ const SpecializationTable: React.FC<SpecializationTableProps> = ({
                   onClick={() => onEdit(spec)}
                   title="Edit specialization"
                 >
-                  ✏️ Edit
+                  <i className="fa-solid fa-pen-to-square" style={{color: "rgb(30, 48, 80)"}}></i> Edit
                 </button>
                 <button
                   className="action-btn delete-btn"

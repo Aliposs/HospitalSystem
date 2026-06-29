@@ -1,14 +1,16 @@
 import React from 'react';
 import { NavLink, useNavigate} from 'react-router-dom';
+import { useAuthStore } from '../../store/authStore';
 import Icon from './sub-components/Icon';
 import '../../styles/patientDashboard.css';
 
 const Sidebar: React.FC = () => {
   const navigate = useNavigate();
+  const { logout } = useAuthStore();
 
-  const handleLogout = () => {
-    // Add logout logic here (e.g., clear tokens)
+  const handleLogout = async () => {
     console.log('Logging out...');
+    await logout();
     navigate('/login');
   };
 
@@ -18,6 +20,7 @@ const Sidebar: React.FC = () => {
     { path: '/patient/appointments', label: 'Appointments', icon: 'calendar' },
     { path: '/patient/medical-record', label: 'Medical Record', icon: 'folder' },
     { path: '/patient/lab-results', label: 'Lab Results', icon: 'lab' },
+    { path: '/patient/follow-up-requests', label: 'Follow-Up Questions', icon: 'message-circle' },
     { path: '/patient/messages', label: 'Messages', icon: 'message-circle' },
     { path: '/patient/profile', label: 'Profile', icon: 'user' },
   ];
@@ -38,14 +41,14 @@ const Sidebar: React.FC = () => {
               </NavLink>
             </li>
           ))}
-          <li className="sidebar-logout">
-            <a href="#" onClick={handleLogout}>
-              <Icon name="log-out"/>
-              Logout
-            </a>
-          </li>
         </ul>
       </nav>
+      <div className="patient-sidebar-logout">
+        <a href="#" onClick={(e) => { e.preventDefault(); handleLogout(); }}>
+          <Icon name="log-out"/>
+          Logout
+        </a>
+      </div>
     </aside>
   );
 };

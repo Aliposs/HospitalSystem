@@ -9,6 +9,7 @@ import MedicalRecord from './pages/MedicalRecord';
 import LabResultsPage from './pages/LabResultsPage';
 import MessagesPage from './pages/MessagesPage';
 import ProfilePage from './pages/ProfilePage';
+import FollowUpQuestionsPage from './FollowUpQuestionsPage';
 import '../../styles/patientDashboard.css';
 
 const PatientDashboard: React.FC = () => {
@@ -24,6 +25,7 @@ const PatientDashboard: React.FC = () => {
           <Route path="appointments" element={<AppointmentsPage />} />
           <Route path="medical-record" element={<MedicalRecord />} />
           <Route path="lab-results" element={<LabResultsPage />} />
+          <Route path="follow-up-requests" element={<FollowUpQuestionsPage />} />
           <Route path="messages" element={<MessagesPage />} />
           <Route path="profile" element={<ProfilePage />} />
         </Routes>

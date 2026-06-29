@@ -33,6 +33,13 @@ const AppointmentsPage: React.FC = () => {
 
   useEffect(() => {
     fetchAppointments();
+    
+    // Check if we should auto-select confirmed tab (from notification click)
+    const scrollToTab = sessionStorage.getItem('scrollToTab');
+    if (scrollToTab) {
+      setActiveTab(scrollToTab);
+      sessionStorage.removeItem('scrollToTab');
+    }
   }, []);
 
   const fetchAppointments = async () => {

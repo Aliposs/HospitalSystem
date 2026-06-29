@@ -10,6 +10,31 @@ const Login = () => {
   const { setAuth } = useAuthStore();
 
   const stateMessage = location.state?.message;
+  const stateTheme = location.state?.theme;
+
+  // Theme colors map
+  const themes: Record<string, { gradient: string; button: string; buttonHover: string; shadow: string }> = {
+    green: {
+      gradient: 'linear-gradient(135deg, #21864b 0%, #21864b 100%)',
+      button: '#2fcc70',
+      buttonHover: '#27ae60',
+      shadow: 'rgba(47, 204, 112, 0.3)',
+    },
+    orange: {
+      gradient: 'linear-gradient(135deg, #c0580a 0%, #e67e22 100%)',
+      button: '#e67e22',
+      buttonHover: '#d35400',
+      shadow: 'rgba(230, 126, 34, 0.3)',
+    },
+    blue: {
+      gradient: 'linear-gradient(135deg, #3599db 0%, #3599db 100%)',
+      button: '#3498db',
+      buttonHover: '#2980b9',
+      shadow: 'rgba(52, 152, 219, 0.3)',
+    },
+  };
+
+  const activeTheme = themes[stateTheme || 'blue'];
   const [formData, setFormData] = useState({
     email: '',
     password: ''
@@ -72,6 +97,8 @@ const Login = () => {
       let fullName = 'User';
       let userRole = user.user_metadata?.role;
 
+      let labRecordId: string | null = null;
+
       // Check if user is admin first (from admin_users table)
       const { data: adminUser } = await supabase
         .from('admin_users')
@@ -89,7 +116,7 @@ const Login = () => {
           .from('doctors')
           .select('full_name')
           .eq('user_id', user.id)
-          .single();
+          .maybeSingle();
         fullName = doc?.full_name || 'Dr. User';
         
       } else if (userRole === 'patient') {
@@ -98,8 +125,29 @@ const Login = () => {
           .from('patients')
           .select('full_name')
           .eq('user_id', user.id)
-          .single();
+          .maybeSingle();
         fullName = pat?.full_name || 'Patient';
+      } else if (userRole === 'nurse') {
+        // User is a nurse
+        fullName = user.user_metadata?.full_name || 'Nurse';
+      } else if (userRole === 'lab') {
+        // User is a lab - check via backend to bypass RLS
+        const labCheckRes = await fetch(
+          `${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/auth/lab-status`,
+          { headers: { Authorization: `Bearer ${session.access_token}` } }
+        );
+        const labData = await labCheckRes.json();
+
+        if (!labCheckRes.ok || !labData.lab) {
+          throw new Error('Lab account not found');
+        }
+
+        if (!labData.lab.is_approved || labData.lab.status !== 'Approved') {
+          throw new Error('Your lab account is pending admin approval. You will be notified once approved.');
+        }
+
+        fullName = labData.lab.name || 'Lab';
+        labRecordId = labData.lab.id;
       }
 
       // Save to store
@@ -113,6 +161,31 @@ const Login = () => {
       // Save userRole to localStorage for route protection
       localStorage.setItem('userRole', userRole || '');
 
+      // Record login activity
+      try {
+        const ipAddress = await fetch('https://api.ipify.org?format=json')
+          .then(res => res.json())
+          .then(data => data.ip)
+          .catch(() => 'unknown');
+        
+        const userAgent = navigator.userAgent;
+        
+        await fetch('http://localhost:5000/api/admin/activity-log/record-login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`
+          },
+          body: JSON.stringify({
+            userId: user.id,
+            ipAddress,
+            userAgent
+          })
+        });
+      } catch (err) {
+        console.error('Failed to record login activity:', err);
+      }
+
       // Route based on role
       if (userRole === 'admin') {
         navigate('/admin/dashboard');
@@ -120,6 +193,11 @@ const Login = () => {
         navigate('/doctor');
       } else if (userRole === 'patient') {
         navigate('/patient');
+      } else if (userRole === 'nurse') {
+        navigate('/nurse');
+      } else if (userRole === 'lab') {
+        localStorage.setItem('labId', labRecordId || '');
+        navigate('/lab');
       } else {
         navigate('/');
       }
@@ -155,7 +233,7 @@ const Login = () => {
       </div>
       
       <div className="login-main-container">
-        <div className="login-left-side">
+        <div className="login-left-side" style={{ background: activeTheme.gradient }}>
           <div className="doctor-image-container">
             <img 
               src="/login.jpg" 
@@ -236,15 +314,21 @@ const Login = () => {
               </div>
 
               <div className="forgot-password-link">
-                <a href="#forgot-password">Forgot Password?</a>
+                <a href="/forgot-password" onClick={(e) => { e.preventDefault(); navigate('/forgot-password', { state: { theme: stateTheme } }); }}>Forgot Password?</a>
               </div>
               
-              <button type="submit" className="login-button" disabled={isSubmitting}>
+              <button type="submit" className="login-button" disabled={isSubmitting}
+                style={{ backgroundColor: activeTheme.button }}
+                onMouseEnter={e => (e.currentTarget.style.backgroundColor = activeTheme.buttonHover)}
+                onMouseLeave={e => (e.currentTarget.style.backgroundColor = activeTheme.button)}
+              >
                 {isSubmitting ? 'Signing in...' : 'Sign In'}
               </button>
               
               <div className="register-link">
-                Don't have an account? <a href="#register" onClick={() => navigate('/register')}>Sign Up</a>
+                Don't have an account? <a href="/register" onClick={(e) => { e.preventDefault(); navigate('/register', { state: { theme: 'green' } }); }}>Sign Up</a>
+                {' · '}
+                <a href="/register-lab" onClick={(e) => { e.preventDefault(); navigate('/register-lab', { state: { theme: 'orange' } }); }}>Register as Lab</a>
               </div>
             </form>
           </div>

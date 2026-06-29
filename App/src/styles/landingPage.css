@@ -84,22 +84,43 @@
   cursor: pointer;
 }
 
+.landing-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 5px;
+  background-color: transparent;
+  border-radius: 10px 10px 0 0;
+}
+
+.register-card::before {
+  background-color: #2ecc71;
+}
+
+.login-card::before {
+  background-color: #3498db;
+}
+
+.lab-card::before {
+  background-color: #e67e22;
+}
+
 .landing-card:hover {
   transform: translateY(-10px);
-  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.1);
 }
 
-.register-card {
-  border-top: 5px solid #2ecc71;
+.register-card:hover {
+  box-shadow: 15px 20px 10px rgba(46, 204, 113, 0.35);
 }
 
-.login-card {
-  border-top: 5px solid #3498db;
+.login-card:hover {
+  box-shadow: 15px 20px 10px rgba(52, 152, 219, 0.35);
 }
 
-.lab-card {
-  border-top: 5px solid #e67e22;
-  opacity: 0.8;
+.lab-card:hover {
+  box-shadow: 15px 20px 10px rgba(230, 126, 34, 0.35);
 }
 
 .card-icon {

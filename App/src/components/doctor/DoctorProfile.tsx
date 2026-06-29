@@ -41,6 +41,12 @@ const DoctorProfile = () => {
   });
 
   const [certificates, setCertificates] = useState<any[]>([]);
+  const [availability, setAvailability] = useState<any[]>([]);
+  const [accountStatus, setAccountStatus] = useState({
+    status: "pending",
+    approvedDate: null as string | null,
+    approvedBy: null as string | null,
+  });
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -68,15 +74,40 @@ const DoctorProfile = () => {
         });
 
         setCertificates(data.certificates || []);
+
+        // Set account status
+        setAccountStatus({
+          status: data.is_approved ? "approved" : "pending",
+          approvedDate: data.admin_approval_date || null,
+          approvedBy: data.approved_by || null,
+        });
       } catch (err: any) {
+        console.error("Profile fetch error:", err);
+        if (err.response?.status === 401) {
+          console.error("Unauthorized - token may be invalid");
+        }
         setError(err.response?.data?.error || "Failed to load profile");
       } finally {
         setLoading(false);
       }
     };
 
+    const fetchAvailability = async () => {
+      try {
+        const res = await api.get("/doctor/availability");
+        setAvailability(res.data || []);
+      } catch (err: any) {
+        console.error("Failed to fetch availability:", err);
+        if (err.response?.status === 401) {
+          console.error("Unauthorized - availability fetch failed");
+        }
+        // Don't set error for availability fetch, just log it
+      }
+    };
+
     fetchProfile();
-  }, [user]);
+    fetchAvailability();
+  }, []);
 
   const handlePersonalInfoChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
@@ -279,6 +310,20 @@ const DoctorProfile = () => {
       const errorMsg = err.message || "Download failed";
       alert(errorMsg);
     }
+  };
+
+  const getDayName = (dayOfWeek: number): string => {
+    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    return days[dayOfWeek] || 'Unknown';
+  };
+
+  const formatTime = (timeString: string): string => {
+    if (!timeString) return '';
+    const [hours, minutes] = timeString.split(':');
+    const hour = parseInt(hours);
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    const displayHour = hour % 12 || 12;
+    return `${displayHour}:${minutes} ${ampm}`;
   };
 
   if (loading) return <div className="loading">Loading profile...</div>;
@@ -531,6 +576,28 @@ const DoctorProfile = () => {
                     rows={5}
                   />
                 </div>
+                <div className="form-group full-width">
+                  <label>Availability Schedule</label>
+                  <div className="availability-schedule">
+                    {availability && availability.length > 0 ? (
+                      <div className="availability-list">
+                        {availability.map((slot) => (
+                          <div key={slot.id} className="availability-item">
+                            <span className="day-name">{getDayName(slot.day_of_week)}</span>
+                            <span className="time-range">
+                              {formatTime(slot.start_time)} - {formatTime(slot.end_time)}
+                            </span>
+                            <span className={`availability-status ${slot.is_available ? 'available' : 'unavailable'}`}>
+                              {slot.is_available ? 'Available' : 'Unavailable'}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="no-availability">No availability schedule set</p>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
           )}
@@ -620,14 +687,23 @@ const DoctorProfile = () => {
             <div className="profile-section">
               <h2>Account Status</h2>
               <div className="status-card">
-                <div className="status-indicator approved"></div>
+                <div className={`status-indicator ${accountStatus.status === "approved" ? "approved" : "pending"}`}></div>
                 <div className="status-info">
-                  <h3>Account Status: Approved</h3>
+                  <h3>Account Status: {accountStatus.status === "approved" ? "Approved" : "Pending"}</h3>
                   <p>
-                    Your account has been approved by the admin. You have full
-                    access to all features.
+                    {accountStatus.status === "approved" 
+                      ? "Your account has been approved by the admin. You have full access to all features."
+                      : "Your account is pending approval. Please wait for the admin to review your registration."}
                   </p>
-                  <p className="approval-date">Approved on: October 15, 2023</p>
+                  {accountStatus.approvedDate && (
+                    <p className="approval-date">
+                      Approved on: {new Date(accountStatus.approvedDate).toLocaleDateString('en-US', { 
+                        year: 'numeric', 
+                        month: 'long', 
+                        day: 'numeric' 
+                      })}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>

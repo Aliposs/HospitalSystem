@@ -9,6 +9,11 @@ export  interface User {
   updated_at: string;
   phone?: string;
   specialization_id?: string;
+  specialization?: string;
+  specialty?: string;
+  full_name?: string;
+  account_status?: string;
+  registration_date?: string;
 }
 
 export  interface UserFilters {

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
 import Icon from './Icon';
 import '../../styles/adminHeader.css';
@@ -12,11 +12,22 @@ interface HeaderProps {
 const Header: React.FC<HeaderProps> = ({ onToggleSidebar, sidebarOpen }) => {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
   const { logout, user } = useAuthStore();
 
-  const handleLogout = () => {
+  const getPageTitle = () => {
+    const path = location.pathname;
+    if (path.includes('/users')) return 'Users';
+    if (path.includes('/specializations')) return 'Specializations';
+    if (path.includes('/audit-logs')) return 'Audit Logs';
+    if (path.includes('/settings')) return 'Settings';
+    if (path.includes('/dashboard')) return 'Dashboard';
+    return 'Dashboard';
+  };
+
+  const handleLogout = async () => {
     // Clear auth using store (will also clear localStorage)
-    logout();
+    await logout();
     navigate('/login');
   };
 
@@ -30,7 +41,7 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar, sidebarOpen }) => {
         <button className="toggle-sidebar-btn" onClick={onToggleSidebar}>
           <Icon name="menu" />
         </button>
-        <h1 className="page-title">Dashboard</h1> {/* Simplified title */}
+        <h1 className="page-title">{getPageTitle()}</h1>
       </div>
 
       <div className="header-right">

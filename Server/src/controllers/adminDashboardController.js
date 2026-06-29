@@ -11,20 +11,8 @@ const adminDashboardService = require('../services/adminDashboardService');
  */
 const getAllStatistics = async (req, res) => {
   try {
-    // Try to get cached statistics
-    const cached = await adminDashboardService.getCachedStatistics('dashboard_all_stats');
-    if (cached) {
-      return res.status(200).json({
-        success: true,
-        data: cached
-      });
-    }
-
-    // Get fresh statistics
+    // Always fetch fresh statistics (no cache)
     const statistics = await adminDashboardService.getAllStatistics();
-
-    // Cache the statistics
-    await adminDashboardService.cacheStatistics('dashboard_all_stats', statistics, 5);
 
     res.status(200).json({
       success: true,

@@ -64,16 +64,16 @@ api.interceptors.response.use(
 // Request interceptor (يضيف التوكن لكل طلب)
 api.interceptors.request.use(config => {
   const token = useAuthStore.getState().accessToken;
+  const user = useAuthStore.getState().user;
 
   const isAuthRequest = config.url?.includes('/auth/') || config.url?.includes('/refresh');
-  // Only /doctor/search is public, all other /doctor/* routes need auth
+  // Public routes that don't need authentication
   const isPublicRoute = config.url?.includes('/doctor/search');
 
   if (token && !isAuthRequest && !isPublicRoute) {
     config.headers.Authorization = `Bearer ${token}`;
-    console.log('Sending request with token: ', token.substring(0, 5) + '...');
   } else if(!token && !isAuthRequest && !isPublicRoute){
-    console.warn('No token found for protected request:', config.url);
+    console.warn('[API Request] No token found for protected request:', config.url);
   }
 
   return config;

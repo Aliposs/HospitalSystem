@@ -6,7 +6,9 @@ const hashPassword = async (password) => {
 };
 
 const generateOTP = () => {
-  return Math.floor(100000 + Math.random() * 900000).toString(); // 6 digits
+  const otp = Math.floor(100000 + Math.random() * 900000).toString(); // 6 digits
+  console.log(`[generateOTP] Generated OTP: ${otp}`);
+  return otp;
 };
 
 const comparePassword = async (plain, hashed) => {

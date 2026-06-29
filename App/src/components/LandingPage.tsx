@@ -89,7 +89,17 @@ const LandingPage = () => {
             <p>Access your account</p>
           </div>
 
-          <div className="landing-card lab-card">
+          <div 
+            className="landing-card lab-card clickable"
+            onClick={() => navigate("/register-lab")}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                navigate('/register-lab');
+              }
+            }}
+          >
             <div className="card-icon">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -111,7 +121,6 @@ const LandingPage = () => {
             </div>
             <h3>Register as Lab</h3>
             <p>Partner with us as a diagnostic laboratory</p>
-            <div className="coming-soon">Coming Soon</div>
           </div>
         </div>
       </div>

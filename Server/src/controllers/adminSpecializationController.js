@@ -13,8 +13,10 @@ const getAllSpecializations = async (req, res) => {
   try {
     const { active_only, page, limit } = req.query;
 
+    console.log('getAllSpecializations called with query:', { active_only, page, limit });
+
     const filters = {
-      active_only: active_only !== 'false'
+      active_only: active_only === 'true' ? true : false
     };
 
     const pagination = {
@@ -30,10 +32,21 @@ const getAllSpecializations = async (req, res) => {
     });
   } catch (error) {
     console.error('Error in getAllSpecializations:', error);
+    
+    // Extract error message safely
+    let errorMessage = 'Internal Server Error';
+    if (error && typeof error === 'object') {
+      if (error.message) {
+        errorMessage = error.message;
+      } else if (error.error_description) {
+        errorMessage = error.error_description;
+      }
+    }
+    
     res.status(500).json({
       success: false,
       error: 'Internal Server Error',
-      message: error.message
+      message: errorMessage
     });
   }
 };
